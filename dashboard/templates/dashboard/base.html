@@ -1,0 +1,144 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SI-KASEP Baduy{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'images/logo.png' %}">
+    <link rel="shortcut icon" type="image/png" href="{% static 'images/logo.png' %}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            DEFAULT: '#0c2335',
+                            50: '#f0f5fb',
+                            100: '#e0ecf7',
+                            200: '#b9d5ee',
+                            300: '#87b4e0',
+                            400: '#538ed0',
+                            500: '#326ebd',
+                            600: '#23539a',
+                            700: '#1b407a',
+                            800: '#16365d',
+                            900: '#0c2335',
+                            950: '#071623',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-slate-50 flex h-screen overflow-hidden">
+
+    <div class="w-64 bg-[#0c2335] text-slate-100 flex flex-col justify-between shadow-xl">
+        <div>
+            <div class="p-5 border-b border-white/10 bg-white/5">
+                <div class="flex items-center gap-3">
+                    <img src="{% static 'images/logo.png' %}" alt="Logo SI-KASEP" class="w-14 h-14 object-contain bg-white rounded-full p-0.5 shadow-md">
+                    
+                    <div>
+                        <h1 class="text-xl font-bold tracking-wider text-sky-400">SI-KASEP</h1>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Sobat Baduy</p>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="mt-6 px-3 space-y-1">
+                <a href="{% url 'dashboard_home' %}" class="flex items-center space-x-3 px-4 py-3 rounded-xl transition {% if request.resolver_match.url_name == 'dashboard_home' %}bg-white/15 text-white font-semibold shadow-inner{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}">
+                    <i class="fa-solid fa-chart-pie w-5"></i>
+                    <span>Home (Ringkasan)</span>
+                </a>
+                
+                <a href="{% url 'dashboard_citizens' %}" class="flex items-center space-x-3 px-4 py-3 rounded-xl transition {% if request.resolver_match.url_name == 'dashboard_citizens' %}bg-white/15 text-white font-semibold shadow-inner{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}">
+                    <i class="fa-solid fa-users w-5"></i>
+                    <span>Data Skrining</span>
+                </a>
+
+                <a href="{% url 'dashboard_reports' %}" class="flex items-center space-x-3 px-4 py-3 rounded-xl transition {% if request.resolver_match.url_name == 'dashboard_reports' %}bg-white/15 text-white font-semibold shadow-inner{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}">
+                    <i class="fa-solid fa-notes-medical w-5"></i>
+                    <span>Laporan</span>
+                </a>
+
+                <a href="{% url 'dashboard_education' %}" class="flex items-center space-x-3 px-4 py-3 rounded-xl transition {% if request.resolver_match.url_name == 'dashboard_education' %}bg-white/15 text-white font-semibold shadow-inner{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}">
+                    <i class="fa-solid fa-book-open w-5"></i>
+                    <span>Materi Edukasi</span>
+                </a>
+
+                <a href="{% url 'dashboard_cadres' %}" class="flex items-center space-x-3 px-4 py-3 rounded-xl transition {% if request.resolver_match.url_name == 'dashboard_cadres' %}bg-white/15 text-white font-semibold shadow-inner{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}">
+                    <i class="fa-solid fa-user-nurse w-5"></i>
+                    <span>Kader</span>
+                </a>
+
+            </nav>
+        </div>
+
+        <div class="p-4 border-t border-white/10 bg-white/5 text-center text-xs text-slate-400">
+            Trisakti PkM Team &copy; 2026
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+        
+        <header class="bg-white border-b border-slate-200 p-4 flex justify-between items-center shadow-sm">
+            
+            <div class="flex items-center gap-3">
+                <img src="{% static 'images/logo.png' %}" alt="Logo SI-KASEP" class="w-10 h-10 object-contain bg-slate-50 rounded-full p-1 border border-slate-200 shadow-sm">
+                <h2 class="text-lg font-semibold text-slate-800 tracking-wide">Sistem Informasi Pencegahan TBC</h2>
+            </div>
+            
+            <div class="relative">
+                <button type="button" id="userMenuBtn" onclick="toggleUserDropdown()" 
+                        class="flex items-center space-x-2 text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 px-3.5 py-1.5 rounded-full transition focus:outline-none cursor-pointer border border-slate-200 shadow-sm">
+                    <i class="fa-solid fa-circle-user text-[#0c2335] text-base"></i>
+                    <span class="font-semibold">{{ request.user.username|default:"Administrator" }}</span>
+                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 ml-1"></i>
+                </button>
+
+                <!-- User Dropdown Menu -->
+                <div id="userDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                    <div class="px-4 py-3 border-b border-slate-100">
+                        <p class="text-xs text-slate-400 font-medium">Akun Terhubung</p>
+                        <p class="text-sm font-bold text-slate-800 truncate">{{ request.user.username|default:"Administrator" }}</p>
+                        {% if request.user.email %}
+                        <p class="text-xs text-slate-500 truncate mt-0.5">{{ request.user.email }}</p>
+                        {% endif %}
+                    </div>
+
+                    <a href="{% url 'logout' %}" class="flex items-center space-x-2.5 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 font-semibold transition">
+                        <i class="fa-solid fa-right-from-bracket text-base"></i>
+                        <span>Logout / Keluar</span>
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-6">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+<script>
+function toggleUserDropdown() {
+    const dropdown = document.getElementById('userDropdown');
+    if (dropdown) {
+        dropdown.classList.toggle('hidden');
+    }
+}
+
+document.addEventListener('click', function(event) {
+    const btn = document.getElementById('userMenuBtn');
+    const dropdown = document.getElementById('userDropdown');
+    if (btn && dropdown && !btn.contains(event.target) && !dropdown.contains(event.target)) {
+        dropdown.classList.add('hidden');
+    }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Laporan - SI-KASEP{% endblock %}
+
+{% block content %}
+
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-800">
+                📊 Laporan
+            </h1>
+
+            <p class="text-sm text-slate-500 mt-1">
+                Ringkasan data skrining untuk monitoring program dan ekspor laporan.
+            </p>
+        </div>
+
+        <div class="flex gap-3">
+
+            <a href="?export=csv"
+               class="bg-[#0c2335] hover:bg-[#16365d] text-white px-4 py-2 rounded-lg font-medium transition">
+                📊 Export CSV
+            </a>
+
+            <a href="{% url 'export_screening_pdf' %}"
+               class="border border-slate-300 hover:bg-slate-100 px-4 py-2 rounded-lg font-medium">
+                📄 Export PDF
+            </a>
+
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="bg-white rounded-xl shadow border border-slate-200 p-5">
+
+        <h2 class="font-semibold mb-4">
+            Pembuat Laporan
+        </h2>
+
+        <form method="GET">
+
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+
+                <input
+                    type="date"
+                    name="start"
+                    value="{{ request.GET.start }}"
+                    class="border rounded-lg px-3 py-2">
+
+                <input
+                    type="date"
+                    name="end"
+                    value="{{ request.GET.end }}"
+                    class="border rounded-lg px-3 py-2">
+
+                <select
+                    name="region"
+                    class="border rounded-lg px-3 py-2">
+
+                    <option value="">Semua Wilayah</option>
+
+                    {% for region in regions %}
+                        <option value="{{ region }}">
+                            {{ region }}
+                        </option>
+                    {% endfor %}
+
+                </select>
+
+                <select
+                    name="result"
+                    class="border rounded-lg px-3 py-2">
+
+                    <option value="">Semua Hasil</option>
+                    <option value="positive">Positif</option>
+                    <option value="negative">Negatif</option>
+
+                </select>
+
+                <button
+                    class="bg-[#0c2335] hover:bg-[#16365d] text-white rounded-lg font-medium transition">
+
+                    Terapkan Filter
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+    <!-- Statistik -->
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+
+        <div class="bg-white rounded-xl shadow border p-5">
+
+            <p class="text-sm text-slate-500">
+                Total Skrining
+            </p>
+
+            <h2 class="text-4xl font-bold mt-2">
+                {{ summary.totals.screenings|default:0 }}
+            </h2>
+
+        </div>
+
+        <div class="bg-white rounded-xl shadow border p-5">
+
+            <p class="text-sm text-slate-500">
+                Hasil Positif
+            </p>
+
+            <h2 class="text-4xl font-bold text-red-600 mt-2">
+                {{ summary.totals.positive_screenings|default:0 }}
+            </h2>
+
+        </div>
+
+        <div class="bg-white rounded-xl shadow border p-5">
+
+            <p class="text-sm text-slate-500">
+                Total Rujukan
+            </p>
+
+            <h2 class="text-4xl font-bold text-blue-600 mt-2">
+                {{ summary.totals.referrals|default:0 }}
+            </h2>
+
+        </div>
+
+        <div class="bg-white rounded-xl shadow border p-5">
+
+            <p class="text-sm text-slate-500">
+                Kader Terlibat
+            </p>
+
+            <h2 class="text-4xl font-bold text-[#0c2335] mt-2">
+                {{ summary.totals.active_cadres|default:0 }}
+            </h2>
+
+        </div>
+
+    </div>
+
+    <!-- Distribusi -->
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <div class="bg-white rounded-xl shadow border p-5">
+
+            <h2 class="font-bold mb-4">
+                Distribusi Wilayah
+            </h2>
+
+            {% for item in summary.byRegion %}
+
+                <div class="mb-4">
+
+                    <div class="flex justify-between text-sm">
+
+                        <span>{{ item.region }}</span>
+
+                        <span>{{ item.total }}</span>
+
+                    </div>
+
+                    <div class="w-full bg-slate-200 rounded-full h-2 mt-2">
+
+                        <div
+                            class="bg-[#0c2335] h-2 rounded-full"
+                            style="width:{{ item.percent }}%">
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            {% empty %}
+
+                <p class="text-slate-400">
+                    Belum ada data.
+                </p>
+
+            {% endfor %}
+
+        </div>
+
+        <div class="bg-white rounded-xl shadow border p-5">
+
+            <h2 class="font-bold mb-4">
+
+                Aktivitas Kader
+
+            </h2>
+
+            {% for item in summary.cadreActivities %}
+
+                <div class="mb-4">
+
+                    <div class="flex justify-between text-sm">
+
+                        <span>{{ item.name }}</span>
+
+                        <span>{{ item.total }}</span>
+
+                    </div>
+
+                    <div class="w-full bg-slate-200 rounded-full h-2 mt-2">
+
+                        <div
+                            class="bg-blue-600 h-2 rounded-full"
+                            style="width:{{ item.percent }}%">
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            {% empty %}
+
+                <p class="text-slate-400">
+                    Belum ada data.
+                </p>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+    <!-- Ringkasan -->
+
+    <div class="bg-white rounded-xl shadow border p-6">
+
+        <h2 class="font-bold text-lg mb-4">
+
+            Narasi Ringkasan
+
+        </h2>
+
+        <ul class="space-y-3 text-sm">
+
+            <li>
+                ✅ Total skrining yang telah dilakukan adalah
+                <b>{{ summary.totals.screenings|default:0 }}</b>.
+            </li>
+
+            <li>
+
+                ✅ Hasil positif sebanyak
+
+                <b>{{ summary.totals.positive_screenings|default:0 }}</b>
+
+                warga.
+
+            </li>
+
+            <li>
+
+                ✅ Jumlah warga terdaftar sebanyak
+
+                <b>{{ summary.totals.citizens|default:0 }}</b>.
+
+            </li>
+
+            <li>
+
+                ✅ Data berasal dari API SI-KASEP.
+
+            </li>
+
+        </ul>
+
+    </div>
+
+</div>
+
+{% endblock %}

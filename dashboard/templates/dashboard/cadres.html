@@ -1,0 +1,278 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Manajemen Kader - SI-KASEP{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Messages / Toast -->
+    {% if messages %}
+    <div class="space-y-2">
+        {% for message in messages %}
+        <div class="p-4 rounded-xl text-sm font-semibold flex items-center gap-2 {% if message.tags == 'error' %}bg-rose-50 text-rose-700 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+            <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %} text-base"></i>
+            <span>{{ message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Top Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Manajemen Kader</h1>
+            <p class="text-sm text-slate-500 mt-1">Direktori kader, cakupan wilayah, dan ringkasan beban skrining.</p>
+        </div>
+
+        <button type="button" onclick="openAddCadreModal()" 
+                class="bg-[#0c2335] hover:bg-[#16365d] text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition duration-200 flex items-center justify-center gap-2 self-start md:self-auto">
+            <i class="fa-solid fa-user-plus text-base"></i>
+            <span>Tambah Kader</span>
+        </button>
+    </div>
+
+    <!-- 4 Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Kader Aktif</p>
+            <p class="text-3xl font-black text-slate-900 mt-1">{{ kader_aktif }}</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Wilayah</p>
+            <p class="text-3xl font-black text-slate-900 mt-1">{{ total_wilayah }}</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Catatan</p>
+            <p class="text-3xl font-black text-slate-900 mt-1">{{ total_catatan }}</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Tersimpan Lokal</p>
+            <p class="text-3xl font-black text-slate-900 mt-1">{{ tersimpan_lokal }}</p>
+        </div>
+    </div>
+
+    {% if not cadres_list %}
+    <p class="text-sm text-slate-400 italic">Belum ada data kader dari database.</p>
+    {% endif %}
+
+    <!-- Bottom List / Table of Cadres -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-slate-600">
+                <thead class="text-xs font-bold text-slate-700 bg-white border-b border-slate-200">
+                    <tr>
+                        <th class="px-5 py-4">ID</th>
+                        <th class="px-5 py-4">Nama</th>
+                        <th class="px-5 py-4">Wilayah</th>
+                        <th class="px-5 py-4">Kontak</th>
+                        <th class="px-5 py-4">Status</th>
+                        <th class="px-5 py-4">Skrining</th>
+                        <th class="px-5 py-4">Aktivitas Terakhir</th>
+                        <th class="px-5 py-4 text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for item in cadres_list %}
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <!-- ID -->
+                        <td class="px-5 py-4 whitespace-nowrap">
+                            <span class="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                                {{ item.cadre_code }}
+                            </span>
+                        </td>
+
+                        <!-- Nama -->
+                        <td class="px-5 py-4 font-bold text-slate-900">
+                            {{ item.name }}
+                        </td>
+
+                        <!-- Wilayah -->
+                        <td class="px-5 py-4 text-xs font-semibold text-slate-700">
+                            <span class="px-2.5 py-1 bg-slate-50 text-slate-700 rounded-lg border border-slate-200">
+                                📍 {{ item.region }}
+                            </span>
+                        </td>
+
+                        <!-- Kontak -->
+                        <td class="px-5 py-4 text-xs font-medium text-slate-600">
+                            {{ item.phone }}
+                        </td>
+
+                        <!-- Status -->
+                        <td class="px-5 py-4">
+                            {% if item.status == 'Aktif' %}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 mr-1.5 bg-emerald-600 rounded-full"></span> Aktif
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                <span class="w-1.5 h-1.5 mr-1.5 bg-slate-500 rounded-full"></span> Non-Aktif
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Skrining -->
+                        <td class="px-5 py-4 font-bold text-slate-800 text-sm">
+                            {{ item.screening_count }}
+                        </td>
+
+                        <!-- Aktivitas Terakhir -->
+                        <td class="px-5 py-4 text-xs text-slate-500">
+                            {{ item.last_active }}
+                        </td>
+
+                        <!-- Aksi -->
+                        <td class="px-5 py-4 text-center whitespace-nowrap">
+                            {% if item.is_local %}
+                            <div class="flex items-center justify-center space-x-1">
+                                <button type="button" 
+                                        onclick="openEditCadreModal(
+                                            '{{ item.id }}', 
+                                            '{{ item.cadre_code|escapejs }}', 
+                                            '{{ item.name|escapejs }}', 
+                                            '{{ item.region|escapejs }}', 
+                                            '{{ item.phone|escapejs }}', 
+                                            '{{ item.status|escapejs }}'
+                                        )"
+                                        class="p-2 text-slate-600 hover:text-[#0c2335] hover:bg-slate-100 rounded-lg transition" title="Edit Kader">
+                                    <i class="fa-regular fa-pen-to-square"></i>
+                                </button>
+
+                                <form action="{% url 'delete_cadre' item.id %}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus data kader ini?');" class="inline-block">
+                                    {% csrf_token %}
+                                    <button type="submit" class="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Hapus Kader">
+                                        <i class="fa-regular fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <span class="text-xs text-slate-400 italic">API Server</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-5 py-12 text-center text-slate-400 font-normal text-sm">
+                            Belum ada data kader.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal Form (Tambah / Edit Kader) -->
+<div id="modalCadre" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        
+        <!-- Modal Header -->
+        <div class="bg-[#0c2335] text-white p-4 px-6 flex justify-between items-center">
+            <h3 id="cadreModalTitle" class="text-lg font-bold tracking-wide">Tambah Kader Baru</h3>
+            <button type="button" onclick="closeCadreModal()" class="text-slate-300 hover:text-white text-xl transition focus:outline-none">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Modal Form Body -->
+        <form id="cadreForm" action="{% url 'add_cadre' %}" method="POST" class="p-6 space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Kode Kader (ID)</label>
+                <input type="text" id="cadreInputCode" name="cadre_code" placeholder="Contoh: KD-101 (Otomatis jika kosong)"
+                       class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nama Lengkap</label>
+                <input type="text" id="cadreInputName" name="name" required placeholder="Masukkan nama lengkap kader"
+                       class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Wilayah / Area Tugas</label>
+                    <input type="text" id="cadreInputRegion" name="region" value="Kawasan Baduy" placeholder="Wilayah tugas"
+                           class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Status</label>
+                    <select id="cadreSelectStatus" name="status"
+                            class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
+                        <option value="Aktif" selected>Aktif</option>
+                        <option value="Non-Aktif">Non-Aktif</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">No. Kontak / HP</label>
+                <input type="text" id="cadreInputPhone" name="phone" placeholder="08xxxxxxxxxx"
+                       class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
+            </div>
+
+            <!-- Modal Footer Buttons -->
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onclick="closeCadreModal()" 
+                        class="px-5 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
+                    Batal
+                </button>
+                <button type="submit" id="cadreBtnSubmit" 
+                        class="px-5 py-2 bg-[#0c2335] hover:bg-[#16365d] text-white text-sm font-bold rounded-xl shadow transition">
+                    Simpan Kader
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openAddCadreModal() {
+    document.getElementById('cadreModalTitle').innerText = 'Tambah Kader Baru';
+    document.getElementById('cadreForm').action = "{% url 'add_cadre' %}";
+    document.getElementById('cadreBtnSubmit').innerText = 'Simpan Kader';
+
+    document.getElementById('cadreInputCode').value = '';
+    document.getElementById('cadreInputName').value = '';
+    document.getElementById('cadreInputRegion').value = 'Kawasan Baduy';
+    document.getElementById('cadreInputPhone').value = '';
+    document.getElementById('cadreSelectStatus').value = 'Aktif';
+
+    document.getElementById('modalCadre').classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+function openEditCadreModal(id, code, name, region, phone, status) {
+    document.getElementById('cadreModalTitle').innerText = 'Edit Data Kader';
+    document.getElementById('cadreForm').action = "/cadres/edit/" + id + "/";
+    document.getElementById('cadreBtnSubmit').innerText = 'Update Kader';
+
+    document.getElementById('cadreInputCode').value = code || '';
+    document.getElementById('cadreInputName').value = name || '';
+    document.getElementById('cadreInputRegion').value = region || 'Kawasan Baduy';
+    document.getElementById('cadreInputPhone').value = phone || '';
+    document.getElementById('cadreSelectStatus').value = status || 'Aktif';
+
+    document.getElementById('modalCadre').classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+function closeCadreModal() {
+    document.getElementById('modalCadre').classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") {
+        closeCadreModal();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,443 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Kelola Edukasi - SI-KASEP{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Messages / Toast -->
+    {% if messages %}
+    <div class="space-y-2">
+        {% for message in messages %}
+        <div class="p-4 rounded-xl text-sm font-semibold flex items-center gap-2 {% if message.tags == 'error' %}bg-rose-50 text-rose-700 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+            <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %} text-base"></i>
+            <span>{{ message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Top Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Kelola Edukasi</h1>
+            <p class="text-sm text-slate-500 mt-1">Inventaris materi TBC, status publikasi, dan media edukasi warga.</p>
+        </div>
+
+        <button type="button" onclick="openAddModal()" 
+                class="bg-[#0c2335] hover:bg-[#16365d] text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition duration-200 flex items-center justify-center gap-2 self-start md:self-auto">
+            <i class="fa-solid fa-cloud-arrow-up text-base"></i>
+            <span>Tambah Materi</span>
+        </button>
+    </div>
+
+    <!-- 4 Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Materi</p>
+            <p class="text-3xl font-black text-slate-900 mt-1">{{ total_materi }}</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Aktif</p>
+            <p class="text-3xl font-black text-slate-900 mt-1">{{ aktif_count }}</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Draft/Review</p>
+            <p class="text-3xl font-black text-slate-900 mt-1">{{ draft_review_count }}</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Media Tersedia</p>
+            <p class="text-3xl font-black text-slate-900 mt-1">{{ media_tersedia_count }}</p>
+        </div>
+    </div>
+
+    <!-- Middle Section (Alur Review & Catatan Validasi) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Alur Review Materi -->
+        <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h2 class="font-bold text-slate-900 text-base mb-4">Alur Review Materi</h2>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <!-- Draft Card -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+                    <div class="w-10 h-10 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center mb-3">
+                        <i class="fa-regular fa-pen-to-square text-lg"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-sm">Draft</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Materi disiapkan admin.</p>
+                </div>
+
+                <!-- Review Card -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+                    <div class="w-10 h-10 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center mb-3">
+                        <i class="fa-regular fa-clipboard text-lg"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-sm">Review</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Diperiksa tim kesehatan.</p>
+                </div>
+
+                <!-- Aktif Card -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center mb-3">
+                        <i class="fa-regular fa-circle-check text-lg"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-sm">Aktif</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Tersedia untuk warga dan kader.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Catatan Validasi -->
+        <div class="lg:col-span-1 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+                <h2 class="font-bold text-slate-900 text-base mb-2">Catatan Validasi</h2>
+                <p class="text-sm text-slate-500 leading-relaxed">
+                    Materi aktif akan tampil di halaman edukasi warga dan kader.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom List / Table of Materials -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+            <h2 class="font-bold text-slate-900 text-base">Daftar Materi Edukasi</h2>
+            <span class="text-xs font-bold text-[#0c2335] bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                {{ materials|length }} Item
+            </span>
+        </div>
+
+        {% if materials %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-slate-600">
+                <thead class="text-xs uppercase bg-slate-50 text-slate-500 border-b border-slate-200">
+                    <tr>
+                        <th class="px-5 py-3.5 font-bold">Judul & Summary</th>
+                        <th class="px-5 py-3.5 font-bold">Kategori</th>
+                        <th class="px-5 py-3.5 font-bold">Jenis Materi</th>
+                        <th class="px-5 py-3.5 font-bold">Status</th>
+                        <th class="px-5 py-3.5 font-bold">Media / Link</th>
+                        <th class="px-5 py-3.5 font-bold text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for item in materials %}
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="px-5 py-4 max-w-xs">
+                            <h4 class="font-bold text-slate-900 truncate" title="{{ item.title }}">{{ item.title }}</h4>
+                            {% if item.summary %}
+                            <p class="text-xs text-slate-400 truncate mt-0.5" title="{{ item.summary }}">{{ item.summary }}</p>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 font-semibold text-slate-700">
+                            <span class="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded-lg font-medium border border-slate-200">
+                                {{ item.category }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4 text-xs font-medium text-slate-600">
+                            {{ item.education_type }}
+                        </td>
+                        <td class="px-5 py-4">
+                            {% if item.status == 'Aktif' %}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 mr-1.5 bg-emerald-600 rounded-full"></span> Aktif
+                            </span>
+                            {% elif item.status == 'Review' %}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                <span class="w-1.5 h-1.5 mr-1.5 bg-amber-600 rounded-full"></span> Review
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                <span class="w-1.5 h-1.5 mr-1.5 bg-slate-500 rounded-full"></span> Draft
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 max-w-xs">
+                            {% if item.education_type == 'Link YouTube' and item.youtube_url %}
+                                <a href="{{ item.youtube_url }}" target="_blank" class="text-xs text-rose-600 font-semibold hover:underline flex items-center gap-1 truncate">
+                                    <i class="fa-brands fa-youtube text-sm"></i>
+                                    <span class="truncate">{{ item.youtube_url }}</span>
+                                </a>
+                            {% elif item.education_type == 'Artikel' and item.article_url %}
+                                <a href="{{ item.article_url }}" target="_blank" class="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1 truncate">
+                                    <i class="fa-solid fa-newspaper text-sm"></i>
+                                    <span class="truncate">{{ item.article_url }}</span>
+                                </a>
+                            {% elif item.file_upload %}
+                                <a href="{{ item.file_upload.url }}" target="_blank" class="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1 truncate">
+                                    <i class="fa-solid fa-file-arrow-down text-sm"></i>
+                                    <span class="truncate">Unduh File Media</span>
+                                </a>
+                            {% else %}
+                                <span class="text-xs text-slate-400 italic">Tidak ada media</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 text-right space-x-1">
+                            <button type="button" 
+                                    onclick="openEditModal(
+                                        '{{ item.id }}', 
+                                        '{{ item.title|escapejs }}', 
+                                        '{{ item.category|escapejs }}', 
+                                        '{{ item.summary|escapejs }}', 
+                                        '{{ item.education_type|escapejs }}', 
+                                        '{{ item.status|escapejs }}', 
+                                        '{{ item.youtube_url|escapejs }}', 
+                                        '{{ item.article_url|escapejs }}', 
+                                        '{{ item.content|escapejs }}'
+                                    )" 
+                                    class="p-2 text-slate-600 hover:text-[#0c2335] hover:bg-slate-100 rounded-lg transition" title="Edit Materi">
+                                <i class="fa-regular fa-pen-to-square"></i>
+                            </button>
+
+                            <form action="{% url 'delete_education_material' item.id %}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus materi ini?');" class="inline-block">
+                                {% csrf_token %}
+                                <button type="submit" class="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Hapus Materi">
+                                    <i class="fa-regular fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-slate-400 font-normal text-sm">
+            Belum ada materi edukasi di database.
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- Modal Form (Tambah / Edit Materi) -->
+<div id="modalTambah" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        
+        <!-- Modal Header -->
+        <div class="bg-[#0c2335] text-white p-4 px-6 flex justify-between items-center">
+            <h3 id="modalTitle" class="text-lg font-bold tracking-wide">Tambah Materi</h3>
+            <button type="button" onclick="closeModal()" class="text-slate-300 hover:text-white text-xl transition focus:outline-none">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Modal Form Body -->
+        <form id="materialForm" action="{% url 'add_education_material' %}" method="POST" enctype="multipart/form-data" class="p-6 space-y-4">
+            {% csrf_token %}
+
+            <!-- Row 1: Judul & Kategori -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Judul</label>
+                    <input type="text" id="inputTitle" name="title" required
+                           class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
+                </div>
+
+                <div class="md:col-span-1">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Kategori</label>
+                    <input type="text" id="inputCategory" name="category" value="Edukasi"
+                           class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
+                </div>
+            </div>
+
+            <!-- Row 2: Deskripsi -->
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Deskripsi</label>
+                <textarea id="inputSummary" name="summary" rows="3"
+                          class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition" placeholder="..."></textarea>
+            </div>
+
+            <!-- Row 3: Jenis Materi & Status -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Jenis Materi</label>
+                    <select id="selectType" name="education_type" onchange="handleTypeChange(this.value)"
+                            class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
+                        <option value="Link YouTube" selected>Link YouTube</option>
+                        <option value="Artikel">Artikel</option>
+                        <option value="PDF / Dokumen">PDF / Dokumen</option>
+                        <option value="Gambar">Gambar</option>
+                        <option value="Video">Video</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Status</label>
+                    <select id="selectStatus" name="status" 
+                            class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
+                        <option value="Draft" selected>Draft</option>
+                        <option value="Review">Review</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Row 4: DYNAMIC MEDIA FIELD -->
+
+            <!-- Field 1: URL YouTube -->
+            <div id="fieldYoutube">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">URL YouTube</label>
+                <input type="text" id="inputYoutube" name="youtube_url" 
+                       placeholder="https://www.youtube.com/watch?v=..."
+                       class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
+            </div>
+
+            <!-- Field 2: Link Artikel -->
+            <div id="fieldArticle" class="hidden">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Link Artikel</label>
+                <input type="text" id="inputArticle" name="article_url" 
+                       placeholder="https://..."
+                       class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
+            </div>
+
+            <!-- Field 3: File PDF / Dokumen -->
+            <div id="fieldPdf" class="hidden">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">File PDF / Dokumen</label>
+                <input type="file" id="inputPdf" name="file_upload" accept=".pdf,.doc,.docx" disabled
+                       class="w-full px-3.5 py-1.5 bg-white border border-slate-300 rounded-xl text-sm file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0c2335] file:text-white hover:file:bg-[#16365d] transition">
+            </div>
+
+            <!-- Field 4: Upload Gambar -->
+            <div id="fieldGambar" class="hidden">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Upload Gambar</label>
+                <input type="file" id="inputGambar" name="file_upload" accept="image/*" disabled
+                       class="w-full px-3.5 py-1.5 bg-white border border-slate-300 rounded-xl text-sm file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0c2335] file:text-white hover:file:bg-[#16365d] transition">
+            </div>
+
+            <!-- Field 5: Upload Video -->
+            <div id="fieldVideo" class="hidden">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Upload Video</label>
+                <input type="file" id="inputVideo" name="file_upload" accept="video/*" disabled
+                       class="w-full px-3.5 py-1.5 bg-white border border-slate-300 rounded-xl text-sm file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0c2335] file:text-white hover:file:bg-[#16365d] transition">
+            </div>
+
+            <!-- Row 5: Konten Tambahan -->
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Konten Tambahan</label>
+                <textarea id="inputContent" name="content" rows="3"
+                          class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition" placeholder="..."></textarea>
+            </div>
+
+            <!-- Modal Footer Buttons -->
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onclick="closeModal()" 
+                        class="px-5 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
+                    Batal
+                </button>
+                <button type="submit" id="btnSubmit" 
+                        class="px-5 py-2 bg-[#0c2335] hover:bg-[#16365d] text-white text-sm font-bold rounded-xl shadow transition">
+                    Simpan Materi
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function handleTypeChange(type) {
+    const fieldYoutube = document.getElementById('fieldYoutube');
+    const fieldArticle = document.getElementById('fieldArticle');
+    const fieldPdf = document.getElementById('fieldPdf');
+    const fieldGambar = document.getElementById('fieldGambar');
+    const fieldVideo = document.getElementById('fieldVideo');
+
+    const inputPdf = document.getElementById('inputPdf');
+    const inputGambar = document.getElementById('inputGambar');
+    const inputVideo = document.getElementById('inputVideo');
+
+    // Hide all & disable file inputs
+    [fieldYoutube, fieldArticle, fieldPdf, fieldGambar, fieldVideo].forEach(el => {
+        if(el) el.classList.add('hidden');
+    });
+
+    [inputPdf, inputGambar, inputVideo].forEach(input => {
+        if(input) input.disabled = true;
+    });
+
+    // Show selected & enable active file input
+    if (type === 'Link YouTube') {
+        fieldYoutube.classList.remove('hidden');
+    } else if (type === 'Artikel') {
+        fieldArticle.classList.remove('hidden');
+    } else if (type === 'PDF / Dokumen') {
+        fieldPdf.classList.remove('hidden');
+        if(inputPdf) inputPdf.disabled = false;
+    } else if (type === 'Gambar') {
+        fieldGambar.classList.remove('hidden');
+        if(inputGambar) inputGambar.disabled = false;
+    } else if (type === 'Video') {
+        fieldVideo.classList.remove('hidden');
+        if(inputVideo) inputVideo.disabled = false;
+    }
+}
+
+function openAddModal() {
+    document.getElementById('modalTitle').innerText = 'Tambah Materi';
+    document.getElementById('materialForm').action = "{% url 'add_education_material' %}";
+    document.getElementById('btnSubmit').innerText = 'Simpan Materi';
+
+    // Status diset hanya Draft dan Review saat Tambah Materi
+    const selectStatus = document.getElementById('selectStatus');
+    selectStatus.innerHTML = `
+        <option value="Draft" selected>Draft</option>
+        <option value="Review">Review</option>
+    `;
+
+    // Reset inputs
+    document.getElementById('inputTitle').value = '';
+    document.getElementById('inputCategory').value = 'Edukasi';
+    document.getElementById('inputSummary').value = '';
+    document.getElementById('selectType').value = 'Link YouTube';
+    document.getElementById('inputYoutube').value = '';
+    document.getElementById('inputArticle').value = '';
+    document.getElementById('inputContent').value = '';
+
+    handleTypeChange('Link YouTube');
+
+    document.getElementById('modalTambah').classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+function openEditModal(id, title, category, summary, type, status, youtubeUrl, articleUrl, content) {
+    document.getElementById('modalTitle').innerText = 'Edit Materi';
+    document.getElementById('materialForm').action = "/education/edit/" + id + "/";
+    document.getElementById('btnSubmit').innerText = 'Update Materi';
+
+    // Status pilihan Aktif, Draft, dan Review tersedia saat Edit Materi
+    const selectStatus = document.getElementById('selectStatus');
+    selectStatus.innerHTML = `
+        <option value="Aktif">Aktif</option>
+        <option value="Draft">Draft</option>
+        <option value="Review">Review</option>
+    `;
+
+    document.getElementById('inputTitle').value = title || '';
+    document.getElementById('inputCategory').value = category || 'Edukasi';
+    document.getElementById('inputSummary').value = summary || '';
+    document.getElementById('selectType').value = type || 'Link YouTube';
+    selectStatus.value = status || 'Aktif';
+    document.getElementById('inputYoutube').value = youtubeUrl || '';
+    document.getElementById('inputArticle').value = articleUrl || '';
+    document.getElementById('inputContent').value = content || '';
+
+    handleTypeChange(type);
+
+    document.getElementById('modalTambah').classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+function closeModal() {
+    document.getElementById('modalTambah').classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") {
+        closeModal();
+    }
+});
+</script>
+{% endblock %}

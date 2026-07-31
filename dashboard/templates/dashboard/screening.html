@@ -1,0 +1,37 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Skrining - SI-KASEP{% endblock %}
+{% block content %}
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+    <h2 class="text-xl font-bold text-slate-900 mb-4">🩺 Riwayat Pemeriksaan & Skrining Gejala</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left text-slate-600">
+            <thead class="text-xs uppercase bg-slate-100 text-slate-700">
+                <tr>
+                    <th class="px-4 py-3">Kode Sesi</th>
+                    <th class="px-4 py-3">Warga ID</th>
+                    <th class="px-4 py-3">Tanggal Skrining</th>
+                    <th class="px-4 py-3">Kategori</th>
+                    <th class="px-4 py-3">Hasil Akhir</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+                {% for sesi in screenings_list %}
+                <tr class="hover:bg-slate-50">
+                    <td class="px-4 py-3 font-mono font-bold text-slate-800">{{ sesi.code }}</td>
+                    <td class="px-4 py-3">Warga #{{ sesi.citizen_id }}</td>
+                    <td class="px-4 py-3">{{ sesi.screening_date|date:"d M Y" }}</td>
+                    <td class="px-4 py-3">{{ sesi.respondent_category }}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                            Terinput di Sistem
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-4 py-8 text-center text-slate-400 italic">Belum ada transaksi skrining masuk.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

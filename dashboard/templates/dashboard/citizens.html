@@ -1,0 +1,302 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Data Skrining Warga - SI-KASEP{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+    
+    <!-- Top Bar Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <span>🩺 Data Warga yang Sudah di Skrining</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Daftar rekapitulasi indikasi medis dan faktor risiko Tuberkulosis (TBC) warga adat</p>
+        </div>
+        <span class="text-sm font-semibold text-[#0c2335] bg-blue-50 px-3.5 py-1.5 rounded-xl border border-blue-200 self-start md:self-auto">
+            Total Terperiksa: {{ skrining_list|length }} Sesi
+        </span>
+    </div>
+
+    <!-- TOOLBAR SEARCH & FILTER -->
+    <form method="GET" class="mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            <input
+                type="text"
+                name="q"
+                value="{{ search_q }}"
+                placeholder="Cari nama warga..."
+                class="border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335]">
+            <input
+                type="date"
+                name="date"
+                value="{{ search_date }}"
+                class="border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335]">
+            <button
+                type="submit"
+                class="bg-[#0c2335] hover:bg-[#16365d] text-white rounded-xl font-bold text-sm py-2 transition shadow">
+                <i class="fa-solid fa-magnifying-glass mr-1"></i> Cari
+            </button>
+            <a
+                href="?export=csv{% if search_q %}&q={{ search_q }}{% endif %}{% if search_date %}&date={{ search_date }}{% endif %}"
+                class="bg-[#1b407a] hover:bg-[#16365d] text-white rounded-xl text-center py-2 font-bold text-sm transition shadow flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-file-csv"></i> Export CSV
+            </a>
+            {% if search_q or search_date %}
+            <a
+                href="{% url 'dashboard_citizens' %}"
+                class="bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-center py-2 font-bold text-sm transition flex items-center justify-center gap-1">
+                <i class="fa-solid fa-rotate-left"></i> Reset Filter
+            </a>
+            {% endif %}
+        </div>
+    </form>
+
+    <!-- DATA TABLE -->
+    <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="w-full text-sm text-left text-slate-600">
+            <thead class="text-xs uppercase bg-slate-50 text-slate-500 border-b border-slate-200">
+                <tr>
+                    <th class="px-4 py-3.5 font-bold">Tanggal</th>
+                    <th class="px-4 py-3.5 font-bold">Kode Warga</th>
+                    <th class="px-4 py-3.5 font-bold">Nama</th>
+                    <th class="px-4 py-3.5 font-bold">Petugas</th>
+                    <th class="px-4 py-3.5 font-bold">Hasil Skrining</th>
+                    <th class="px-4 py-3.5 font-bold text-center">Aksi</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for item in skrining_list %}
+                <tr class="hover:bg-slate-50/80 transition cursor-pointer"
+                    onclick="openDetailModal(
+                        '{{ item.citizen_id }}', 
+                        '{{ item.name|escapejs }}', 
+                        '{{ item.date|escapejs }}', 
+                        '{{ item.officer|escapejs }}', 
+                        '{{ item.result|escapejs }}', 
+                        '{{ item.status_label|escapejs }}', 
+                        '{{ item.sync_status|escapejs }}', 
+                        '{{ item.score|floatformat:0 }}', 
+                        '{{ item.region|escapejs }}', 
+                        '{{ item.factors|escapejs }}', 
+                        '{{ item.recommendation|escapejs }}'
+                    )">
+                    
+                    <!-- Tanggal -->
+                    <td class="px-4 py-4 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                        <i class="fa-regular fa-calendar mr-1.5 text-slate-400"></i>
+                        {{ item.date|default:"-" }}
+                    </td>
+
+                    <!-- Kode Warga -->
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                            SB-{{ item.citizen_id }}
+                        </span>
+                    </td>
+
+                    <!-- Nama -->
+                    <td class="px-4 py-4 font-bold text-slate-900">
+                        {{ item.name }}
+                    </td>
+
+                    <!-- Petugas -->
+                    <td class="px-4 py-4 text-xs font-medium text-slate-700 whitespace-nowrap">
+                        <div class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-user-doctor text-slate-400"></i>
+                            <span>{{ item.officer }}</span>
+                        </div>
+                    </td>
+
+                    <!-- Hasil Skrining -->
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        {% if item.result == 'positive' %}
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                            <span class="w-1.5 h-1.5 mr-1.5 bg-rose-600 rounded-full"></span> {{ item.status_label }}
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-[#0c2335] border border-blue-200">
+                            <span class="w-1.5 h-1.5 mr-1.5 bg-[#0c2335] rounded-full"></span> {{ item.status_label|default:"Sehat / Negatif" }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Aksi -->
+                    <td class="px-4 py-4 text-center whitespace-nowrap" onclick="event.stopPropagation()">
+                        <button type="button" 
+                                onclick="openDetailModal(
+                                    '{{ item.citizen_id }}', 
+                                    '{{ item.name|escapejs }}', 
+                                    '{{ item.date|escapejs }}', 
+                                    '{{ item.officer|escapejs }}', 
+                                    '{{ item.result|escapejs }}', 
+                                    '{{ item.status_label|escapejs }}', 
+                                    '{{ item.sync_status|escapejs }}', 
+                                    '{{ item.score|floatformat:0 }}', 
+                                    '{{ item.region|escapejs }}', 
+                                    '{{ item.factors|escapejs }}', 
+                                    '{{ item.recommendation|escapejs }}'
+                                )"
+                                class="px-3 py-1.5 bg-[#0c2335] hover:bg-[#16365d] text-white text-xs font-bold rounded-lg shadow transition inline-flex items-center gap-1.5">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>Detail</span>
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-slate-400">
+                        {% if search_date %}
+                        <i class="fa-solid fa-calendar-xmark text-4xl block mb-3 text-rose-400"></i>
+                        <p class="font-bold text-slate-800 text-sm">Tidak ada skrining pada tanggal ini ({{ search_date }})</p>
+                        <p class="text-xs text-slate-400 mt-1">Silakan pilih tanggal lain atau kosongkan filter tanggal.</p>
+                        {% elif search_q %}
+                        <i class="fa-solid fa-user-slash text-4xl block mb-3 text-amber-400"></i>
+                        <p class="font-bold text-slate-800 text-sm">Tidak ada data warga ditemukan untuk pencarian "{{ search_q }}"</p>
+                        <p class="text-xs text-slate-400 mt-1">Silakan periksa ejaan atau gunakan nama warga lainnya.</p>
+                        {% else %}
+                        <i class="fa-solid fa-folder-open text-4xl block mb-3 text-slate-300"></i>
+                        <p class="font-bold text-slate-800 text-sm">Belum ada data warga adat yang tercatat melakukan skrining.</p>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Detail Skrining (Halaman Melayang) -->
+<div id="modalDetailCitizen" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        
+        <!-- Modal Header -->
+        <div class="bg-[#0c2335] text-white p-4 px-6 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-id-card text-sky-400 text-lg"></i>
+                <h3 class="text-lg font-bold tracking-wide">Detail Hasil Skrining Warga</h3>
+            </div>
+            <button type="button" onclick="closeDetailModal()" class="text-slate-300 hover:text-white text-xl transition focus:outline-none">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6 space-y-5">
+            
+            <!-- Summary Header Box -->
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+                <div>
+                    <span id="detailCodeBadge" class="font-mono text-xs font-bold text-slate-700 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-sm">
+                        SB-
+                    </span>
+                    <h2 id="detailNameText" class="text-lg font-black text-slate-900 mt-2">Nama Warga</h2>
+                    <p class="text-xs text-slate-400 mt-0.5" id="detailRegionText">Wilayah Baduy</p>
+                </div>
+                <div class="text-right">
+                    <div id="detailResultBadge"></div>
+                    <div id="detailSyncBadge" class="mt-2"></div>
+                </div>
+            </div>
+
+            <!-- Grid Details -->
+            <div class="grid grid-cols-2 gap-4 text-xs">
+                <div class="p-3 bg-slate-50/70 rounded-xl border border-slate-100">
+                    <span class="text-slate-400 font-medium block uppercase tracking-wider text-[10px]">Tanggal Pemeriksaan</span>
+                    <span id="detailDateText" class="font-bold text-slate-800 text-sm mt-0.5 block">-</span>
+                </div>
+
+                <div class="p-3 bg-slate-50/70 rounded-xl border border-slate-100">
+                    <span class="text-slate-400 font-medium block uppercase tracking-wider text-[10px]">Petugas Pemeriksa</span>
+                    <span id="detailOfficerText" class="font-bold text-slate-800 text-sm mt-0.5 block">-</span>
+                </div>
+
+                <div class="p-3 bg-slate-50/70 rounded-xl border border-slate-100">
+                    <span class="text-slate-400 font-medium block uppercase tracking-wider text-[10px]">Skor Indeks / BMI</span>
+                    <span id="detailScoreText" class="font-bold text-slate-800 text-sm mt-0.5 block">-</span>
+                </div>
+
+                <div class="p-3 bg-slate-50/70 rounded-xl border border-slate-100">
+                    <span class="text-slate-400 font-medium block uppercase tracking-wider text-[10px]">Status Data</span>
+                    <span class="font-bold text-emerald-700 text-sm mt-0.5 flex items-center gap-1">
+                        <i class="fa-solid fa-circle-check text-xs"></i> Terverifikasi
+                    </span>
+                </div>
+            </div>
+
+            <!-- Faktor Risiko & Gejala -->
+            <div>
+                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <i class="fa-solid fa-notes-medical text-rose-500"></i>
+                    <span>Faktor Risiko & Indikasi Gejala</span>
+                </h4>
+                <div id="detailFactorsText" class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium leading-relaxed">
+                    Tidak ada gejala terekam.
+                </div>
+            </div>
+
+            <!-- Rekomendasi Tindak Lanjut -->
+            <div>
+                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-doctor text-indigo-600"></i>
+                    <span>Rekomendasi Tindak Lanjut Medis</span>
+                </h4>
+                <div id="detailRecommendationText" class="p-3.5 bg-indigo-50/60 border border-indigo-100 rounded-xl text-xs text-indigo-900 font-semibold leading-relaxed">
+                    Edukasi pencegahan rutin.
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bg-slate-50 px-6 py-3 border-t border-slate-100 flex justify-end">
+            <button type="button" onclick="closeDetailModal()" 
+                    class="px-5 py-2 bg-[#0c2335] hover:bg-[#16365d] text-white text-xs font-bold rounded-xl shadow transition">
+                Tutup
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+function openDetailModal(citizenId, name, date, officer, result, statusLabel, syncStatus, score, region, factors, recommendation) {
+    document.getElementById('detailCodeBadge').innerText = 'SB-' + citizenId;
+    document.getElementById('detailNameText').innerText = name || 'Warga Adat';
+    document.getElementById('detailRegionText').innerText = '📍 ' + (region || 'Kawasan Baduy');
+    document.getElementById('detailDateText').innerText = date || '-';
+    document.getElementById('detailOfficerText').innerText = officer || 'Kader PMO Adat';
+    document.getElementById('detailScoreText').innerText = score || '-';
+
+    // Result Badge
+    const resultBadgeDiv = document.getElementById('detailResultBadge');
+    if (result === 'positive') {
+        resultBadgeDiv.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200 shadow-sm"><span class="w-2 h-2 mr-1.5 bg-rose-600 rounded-full animate-pulse"></span> ${statusLabel}</span>`;
+    } else {
+        resultBadgeDiv.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-[#0c2335] border border-blue-200 shadow-sm"><span class="w-2 h-2 mr-1.5 bg-[#0c2335] rounded-full"></span> ${statusLabel || 'Sehat / Negatif'}</span>`;
+    }
+
+    // Sync Badge
+    const syncBadgeDiv = document.getElementById('detailSyncBadge');
+    syncBadgeDiv.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-cloud-check mr-1 text-emerald-600"></i> ${syncStatus || 'Tersinkron'}</span>`;
+
+    // Factors & Recommendations
+    document.getElementById('detailFactorsText').innerText = factors || 'Tidak ada gejala terekam';
+    document.getElementById('detailRecommendationText').innerText = recommendation || 'Edukasi pencegahan rutin';
+
+    document.getElementById('modalDetailCitizen').classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+function closeDetailModal() {
+    document.getElementById('modalDetailCitizen').classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") {
+        closeDetailModal();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,139 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Home - SI-KASEP{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="bg-[#0c2335] text-white p-6 rounded-2xl mb-6 shadow-md">
+    <h1 class="text-2xl font-bold">Ringkasan Pemantauan Komunitas Baduy</h1>
+    <p class="text-blue-100 text-sm mt-1">Pemberdayaan Masyarakat Baduy dalam Pencegahan Tuberkulosis Berbasis Kearifan Lokal</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <h3 class="text-slate-400 text-xs font-bold uppercase">Total Warga Adat</h3>
+        <p class="text-3xl font-black text-slate-900 mt-1">{{ total_warga }}</p>
+    </div>
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-rose-500">
+        <h3 class="text-rose-500 text-xs font-bold uppercase">Positif / Berisiko</h3>
+        <p class="text-3xl font-black text-rose-600 mt-1">{{ positif }}</p>
+    </div>
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <h3 class="text-sky-600 text-xs font-bold uppercase">Warga Sehat (Negatif)</h3>
+        <p class="text-3xl font-black text-slate-900 mt-1">{{ negatif }}</p>
+    </div>
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <h3 class="text-indigo-500 text-xs font-bold uppercase">Kader Aktif</h3>
+        <p class="text-3xl font-black text-indigo-700 mt-1">{{ kader_aktif }}</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-[480px]">
+        <h2 class="font-bold text-slate-900 mb-2">📍 Sebaran Wilayah Skrining TBC</h2>
+        <div id="map" class="w-full h-[400px] rounded-lg bg-slate-100 z-10"></div>
+    </div>
+    
+    <div class="lg:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[480px]">
+        <div class="flex flex-col h-full overflow-hidden">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="font-bold text-slate-900 flex items-center gap-2">
+                    <span class="flex h-2 w-2 rounded-full bg-rose-600 animate-pulse"></span>
+                    ⚠️ Masyarakat Positif TBC
+                </h2>
+                <span class="text-xs font-bold text-rose-700 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100">
+                    {{ warga_positif_list|length }} Kasus
+                </span>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                {% for warga in warga_positif_list %}
+                <button type="button" 
+                        onclick="fokusKeWarga({{ warga.lat }}, {{ warga.lng }}, '{{ warga.name }}')"
+                        class="w-full text-left p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between hover:bg-rose-50/50 hover:border-rose-300 transition duration-200 focus:outline-none focus:ring-2 focus:ring-rose-500">
+                    <div class="min-w-0">
+                        <h4 class="text-sm font-bold text-slate-800 truncate">{{ warga.name }}</h4>
+                        <p class="text-[11px] text-slate-400 font-mono mt-0.5">ID Warga: SB-{{ warga.citizen_id }}</p>
+                    </div>
+                    <div class="text-right flex flex-col items-end gap-1">
+                        <span class="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-rose-100 text-rose-800 border border-rose-200 whitespace-nowrap">
+                            {{ warga.status_label|default:"Berisiko TBC" }}
+                        </span>
+                        <span class="text-[10px] text-slate-400">
+                            {{ warga.date|date:"d M Y" }}
+                        </span>
+                    </div>
+                </button>
+                {% empty %}
+                <div class="h-full flex flex-col items-center justify-center text-center p-6 my-auto text-slate-400">
+                    <i class="fa-solid fa-heart-shield text-3xl mb-2 text-[#0c2335]"></i>
+                    <p class="text-xs font-bold">Alhamdulillah, Bersih</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Tidak ada warga yang terdeteksi positif TBC.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <p class="text-[11px] text-slate-500 italic bg-amber-50 text-amber-900 p-2.5 rounded-lg border border-amber-200 mt-3 flex items-start gap-1.5">
+            <i class="fa-solid fa-shield-halved mt-0.5 text-amber-700"></i>
+            <span>Klik nama warga untuk memfokuskan lokasi sebaran pada peta secara instan.</span>
+        </p>
+    </div>
+</div>
+
+<script>
+    // Inisialisasi Peta (Kawasan Baduy Leuwidamar)
+    var map = L.map('map').setView([-6.6120, 106.2230], 13);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Objek Penampung Penanda
+    var markerStorage = {};
+
+    // Ambil data koordinat dari Django views
+    var points = {{ map_points|safe }};
+    
+    points.forEach(function(point) {
+        var color = point.status_risiko === 'positive' ? 'red' : '#0c2335';
+        
+        // Membersihkan nama dari spasi agar jadi ID yang valid (misal: "Hery_Purwanto")
+        var cleanId = "warga_" + point.nama.replace(/\s+/g, '_');
+
+        var marker = L.circleMarker([point.lat, point.lng], {
+            radius: 9,
+            fillColor: color,
+            color: '#fff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.85
+        }).addTo(map);
+        
+        marker.bindPopup("<b class='text-sm'>" + point.nama + "</b><br><span class='text-xs text-slate-500'>" + point.label + "</span>", { autoPan: false });
+        
+        // Menyimpan marker ke memori
+        markerStorage[cleanId] = marker;
+    });
+
+    // FUNGSI INTERAKTIF KLIK FOKUS PETA
+    function fokusKeWarga(lat, lng, rawName) {
+        var keyId = "warga_" + rawName.replace(/\s+/g, '_');
+
+        // 1. Letuskan balon informasi (popup) terlebih dahulu
+        if (markerStorage[keyId]) {
+            markerStorage[keyId].openPopup();
+        }
+
+        // 2. Biarkan kamera meluncur mulus (tanpa gangguan timer)
+        map.flyTo([lat, lng], 16, {
+            animate: true,
+            duration: 1.2
+        });
+    }
+</script>
+{% endblock %}
