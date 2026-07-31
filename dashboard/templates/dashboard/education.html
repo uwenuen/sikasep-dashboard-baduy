@@ -138,14 +138,14 @@
                             </span>
                         </td>
                         <td class="px-5 py-4 text-xs font-medium text-slate-600">
-                            {{ item.education_type }}
+                            {{ item.display_type }}
                         </td>
                         <td class="px-5 py-4">
-                            {% if item.status == 'Aktif' %}
+                            {% if item.status == 'published' %}
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                 <span class="w-1.5 h-1.5 mr-1.5 bg-emerald-600 rounded-full"></span> Aktif
                             </span>
-                            {% elif item.status == 'Review' %}
+                            {% elif item.status == 'review' %}
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
                                 <span class="w-1.5 h-1.5 mr-1.5 bg-amber-600 rounded-full"></span> Review
                             </span>
@@ -156,20 +156,15 @@
                             {% endif %}
                         </td>
                         <td class="px-5 py-4 max-w-xs">
-                            {% if item.education_type == 'Link YouTube' and item.youtube_url %}
+                            {% if item.education_type == 'youtube' and item.youtube_url %}
                                 <a href="{{ item.youtube_url }}" target="_blank" class="text-xs text-rose-600 font-semibold hover:underline flex items-center gap-1 truncate">
                                     <i class="fa-brands fa-youtube text-sm"></i>
                                     <span class="truncate">{{ item.youtube_url }}</span>
                                 </a>
-                            {% elif item.education_type == 'Artikel' and item.article_url %}
-                                <a href="{{ item.article_url }}" target="_blank" class="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1 truncate">
-                                    <i class="fa-solid fa-newspaper text-sm"></i>
-                                    <span class="truncate">{{ item.article_url }}</span>
-                                </a>
-                            {% elif item.file_upload %}
-                                <a href="{{ item.file_upload.url }}" target="_blank" class="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1 truncate">
+                            {% elif item.file_url %}
+                                <a href="{{ item.file_url }}" target="_blank" class="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1 truncate">
                                     <i class="fa-solid fa-file-arrow-down text-sm"></i>
-                                    <span class="truncate">Unduh File Media</span>
+                                    <span class="truncate">Lihat / Unduh Media</span>
                                 </a>
                             {% else %}
                                 <span class="text-xs text-slate-400 italic">Tidak ada media</span>
@@ -185,7 +180,6 @@
                                         '{{ item.education_type|escapejs }}', 
                                         '{{ item.status|escapejs }}', 
                                         '{{ item.youtube_url|escapejs }}', 
-                                        '{{ item.article_url|escapejs }}', 
                                         '{{ item.content|escapejs }}'
                                     )" 
                                     class="p-2 text-slate-600 hover:text-[#0c2335] hover:bg-slate-100 rounded-lg transition" title="Edit Materi">
@@ -257,11 +251,11 @@
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Jenis Materi</label>
                     <select id="selectType" name="education_type" onchange="handleTypeChange(this.value)"
                             class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
-                        <option value="Link YouTube" selected>Link YouTube</option>
-                        <option value="Artikel">Artikel</option>
-                        <option value="PDF / Dokumen">PDF / Dokumen</option>
-                        <option value="Gambar">Gambar</option>
-                        <option value="Video">Video</option>
+                        <option value="youtube" selected>Link YouTube</option>
+                        <option value="article">Artikel</option>
+                        <option value="pdf">PDF / Dokumen</option>
+                        <option value="image">Gambar</option>
+                        <option value="video">Video</option>
                     </select>
                 </div>
 
@@ -269,8 +263,8 @@
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Status</label>
                     <select id="selectStatus" name="status" 
                             class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
-                        <option value="Draft" selected>Draft</option>
-                        <option value="Review">Review</option>
+                        <option value="draft" selected>Draft</option>
+                        <option value="review">Review</option>
                     </select>
                 </div>
             </div>
@@ -316,7 +310,7 @@
 
             <!-- Row 5: Konten Tambahan -->
             <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Konten Tambahan</label>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Konten Tambahan / Isi Artikel</label>
                 <textarea id="inputContent" name="content" rows="3"
                           class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition" placeholder="..."></textarea>
             </div>
@@ -348,7 +342,6 @@ function handleTypeChange(type) {
     const inputGambar = document.getElementById('inputGambar');
     const inputVideo = document.getElementById('inputVideo');
 
-    // Hide all & disable file inputs
     [fieldYoutube, fieldArticle, fieldPdf, fieldGambar, fieldVideo].forEach(el => {
         if(el) el.classList.add('hidden');
     });
@@ -357,18 +350,17 @@ function handleTypeChange(type) {
         if(input) input.disabled = true;
     });
 
-    // Show selected & enable active file input
-    if (type === 'Link YouTube') {
+    if (type === 'youtube' || type === 'Link YouTube') {
         fieldYoutube.classList.remove('hidden');
-    } else if (type === 'Artikel') {
+    } else if (type === 'article' || type === 'Artikel') {
         fieldArticle.classList.remove('hidden');
-    } else if (type === 'PDF / Dokumen') {
+    } else if (type === 'pdf' || type === 'PDF / Dokumen') {
         fieldPdf.classList.remove('hidden');
         if(inputPdf) inputPdf.disabled = false;
-    } else if (type === 'Gambar') {
+    } else if (type === 'image' || type === 'Gambar') {
         fieldGambar.classList.remove('hidden');
         if(inputGambar) inputGambar.disabled = false;
-    } else if (type === 'Video') {
+    } else if (type === 'video' || type === 'Video') {
         fieldVideo.classList.remove('hidden');
         if(inputVideo) inputVideo.disabled = false;
     }
@@ -379,51 +371,61 @@ function openAddModal() {
     document.getElementById('materialForm').action = "{% url 'add_education_material' %}";
     document.getElementById('btnSubmit').innerText = 'Simpan Materi';
 
-    // Status diset hanya Draft dan Review saat Tambah Materi
     const selectStatus = document.getElementById('selectStatus');
     selectStatus.innerHTML = `
-        <option value="Draft" selected>Draft</option>
-        <option value="Review">Review</option>
+        <option value="draft" selected>Draft</option>
+        <option value="review">Review</option>
     `;
 
-    // Reset inputs
     document.getElementById('inputTitle').value = '';
     document.getElementById('inputCategory').value = 'Edukasi';
     document.getElementById('inputSummary').value = '';
-    document.getElementById('selectType').value = 'Link YouTube';
+    document.getElementById('selectType').value = 'youtube';
     document.getElementById('inputYoutube').value = '';
     document.getElementById('inputArticle').value = '';
     document.getElementById('inputContent').value = '';
 
-    handleTypeChange('Link YouTube');
+    handleTypeChange('youtube');
 
     document.getElementById('modalTambah').classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
 }
 
-function openEditModal(id, title, category, summary, type, status, youtubeUrl, articleUrl, content) {
+function openEditModal(id, title, category, summary, type, status, youtubeUrl, content) {
     document.getElementById('modalTitle').innerText = 'Edit Materi';
     document.getElementById('materialForm').action = "/education/edit/" + id + "/";
     document.getElementById('btnSubmit').innerText = 'Update Materi';
 
-    // Status pilihan Aktif, Draft, dan Review tersedia saat Edit Materi
     const selectStatus = document.getElementById('selectStatus');
     selectStatus.innerHTML = `
-        <option value="Aktif">Aktif</option>
-        <option value="Draft">Draft</option>
-        <option value="Review">Review</option>
+        <option value="published">Aktif</option>
+        <option value="draft">Draft</option>
+        <option value="review">Review</option>
     `;
 
     document.getElementById('inputTitle').value = title || '';
     document.getElementById('inputCategory').value = category || 'Edukasi';
     document.getElementById('inputSummary').value = summary || '';
-    document.getElementById('selectType').value = type || 'Link YouTube';
-    selectStatus.value = status || 'Aktif';
+    
+    let typeVal = 'youtube';
+    if (type === 'youtube' || type === 'Link YouTube') typeVal = 'youtube';
+    else if (type === 'article' || type === 'Artikel') typeVal = 'article';
+    else if (type === 'pdf' || type === 'PDF / Dokumen') typeVal = 'pdf';
+    else if (type === 'image' || type === 'Gambar') typeVal = 'image';
+    else if (type === 'video' || type === 'Video') typeVal = 'video';
+
+    document.getElementById('selectType').value = typeVal;
+
+    let statusVal = 'published';
+    if (status === 'published' || status === 'Aktif') statusVal = 'published';
+    else if (status === 'review' || status === 'Review') statusVal = 'review';
+    else if (status === 'draft' || status === 'Draft') statusVal = 'draft';
+
+    selectStatus.value = statusVal;
     document.getElementById('inputYoutube').value = youtubeUrl || '';
-    document.getElementById('inputArticle').value = articleUrl || '';
     document.getElementById('inputContent').value = content || '';
 
-    handleTypeChange(type);
+    handleTypeChange(typeVal);
 
     document.getElementById('modalTambah').classList.remove('hidden');
     document.body.classList.add('overflow-hidden');

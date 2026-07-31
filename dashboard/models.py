@@ -232,26 +232,40 @@ class EducationMaterials(models.Model):
         managed = False
         db_table = 'education_materials'
 
-
-class MateriEdukasi(models.Model):
-    title = models.CharField(max_length=250)
-    category = models.CharField(max_length=100, default="Edukasi")
-    summary = models.TextField(blank=True, null=True)
-    education_type = models.CharField(max_length=50, default="Link YouTube")
-    status = models.CharField(max_length=20, default="Aktif")
-    youtube_url = models.CharField(max_length=255, blank=True, null=True)
-    article_url = models.CharField(max_length=255, blank=True, null=True)
-    file_upload = models.FileField(upload_to="education/", blank=True, null=True)
-    content = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "materi_edukasi"
-        ordering = ['-created_at']
-
     def __str__(self):
         return self.title
+
+    @property
+    def display_status(self):
+        mapping = {
+            'published': 'Aktif',
+            'review': 'Review',
+            'draft': 'Draft'
+        }
+        return mapping.get(self.status, self.status.capitalize() if self.status else 'Draft')
+
+    @property
+    def display_type(self):
+        mapping = {
+            'youtube': 'Link YouTube',
+            'article': 'Artikel',
+            'pdf': 'PDF / Dokumen',
+            'image': 'Gambar',
+            'video': 'Video',
+            'audio': 'Audio'
+        }
+        return mapping.get(self.education_type, self.education_type)
+
+    @property
+    def file_url(self):
+        if self.image_path:
+            return self.image_path if self.image_path.startswith(('http://', 'https://', '/')) else f"/media/{self.image_path}"
+        if self.video_url and not self.video_url.startswith(('http://', 'https://')):
+            return f"/media/{self.video_url}"
+        if self.audio_url and not self.audio_url.startswith(('http://', 'https://')):
+            return f"/media/{self.audio_url}"
+        return None
+
 
 
 class Kader(models.Model):

@@ -284,19 +284,23 @@ def export_screening_pdf(request):
     return response
 
 
-from .models import MateriEdukasi
+import uuid
+from django.utils import timezone
+from django.utils.text import slugify
+from django.core.files.storage import FileSystemStorage
+from .models import EducationMaterials
 from django.db.models import Q
 
 @login_required(login_url="login")
 def dashboard_education(request):
-    materials = MateriEdukasi.objects.all()
+    materials = EducationMaterials.objects.filter(deleted_at__isnull=True).order_by('-created_at')
     
     total_materi = materials.count()
-    aktif_count = materials.filter(status='Aktif').count()
-    draft_review_count = materials.filter(status__in=['Draft', 'Review']).count()
+    aktif_count = materials.filter(status='published').count()
+    draft_review_count = materials.filter(status__in=['draft', 'review']).count()
     
     media_tersedia_count = materials.filter(
-        Q(youtube_url__gt='') | Q(article_url__gt='') | Q(file_upload__gt='')
+        Q(youtube_url__gt='') | Q(image_path__gt='') | Q(video_url__gt='') | Q(audio_url__gt='')
     ).count()
 
     context = {
@@ -315,10 +319,32 @@ def add_education_material(request):
         title = request.POST.get("title", "").strip()
         category = request.POST.get("category", "Edukasi").strip() or "Edukasi"
         summary = request.POST.get("summary", "").strip()
-        education_type = request.POST.get("education_type", "Link YouTube")
-        status = request.POST.get("status", "Draft")
-        if status == "Aktif":
-            status = "Draft"
+        
+        type_input = request.POST.get("education_type", "youtube")
+        type_mapping = {
+            "Link YouTube": "youtube",
+            "Artikel": "article",
+            "PDF / Dokumen": "pdf",
+            "Gambar": "image",
+            "Video": "video",
+            "youtube": "youtube",
+            "article": "article",
+            "pdf": "pdf",
+            "image": "image",
+            "video": "video"
+        }
+        education_type = type_mapping.get(type_input, "youtube")
+
+        status_input = request.POST.get("status", "draft")
+        status_mapping = {
+            "Aktif": "published",
+            "Review": "review",
+            "Draft": "draft",
+            "published": "published",
+            "review": "review",
+            "draft": "draft"
+        }
+        status = status_mapping.get(status_input, "draft")
 
         youtube_url = request.POST.get("youtube_url", "").strip()
         article_url = request.POST.get("article_url", "").strip()
@@ -330,19 +356,46 @@ def add_education_material(request):
         if article_url and not article_url.startswith(("http://", "https://")):
             article_url = "https://" + article_url
 
+        image_path = None
+        video_url = None
+        audio_url = None
+
+        if file_upload:
+            fs = FileSystemStorage(location='media/education_materials/', base_url='/media/education_materials/')
+            filename = fs.save(f"{uuid.uuid4().hex[:8]}_{file_upload.name}", file_upload)
+            relative_path = f"education_materials/{filename}"
+
+            if education_type == 'image':
+                image_path = relative_path
+            elif education_type == 'video':
+                video_url = relative_path
+            else:
+                audio_url = relative_path
+
+        base_slug = slugify(title) if title else "materi-edukasi"
+        slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
+
+        now = timezone.now()
+        published_at = now if status == 'published' else None
+
         if title:
-            item = MateriEdukasi.objects.create(
+            item = EducationMaterials.objects.create(
+                slug=slug,
                 title=title,
                 category=category,
                 summary=summary,
+                content=content or (article_url if education_type == 'article' else ''),
                 education_type=education_type,
+                youtube_url=youtube_url if education_type == 'youtube' else None,
+                image_path=image_path,
+                video_url=video_url,
+                audio_url=audio_url,
                 status=status,
-                youtube_url=youtube_url if education_type == 'Link YouTube' else '',
-                article_url=article_url if education_type == 'Artikel' else '',
-                file_upload=file_upload if education_type in ['PDF / Dokumen', 'Gambar', 'Video'] else None,
-                content=content
+                published_at=published_at,
+                created_at=now,
+                updated_at=now
             )
-            messages.success(request, f"Materi edukasi '{item.title}' berhasil ditambahkan (Status: {status})!")
+            messages.success(request, f"Materi edukasi '{item.title}' berhasil ditambahkan ke SI-KASEP (Status: {item.display_status})!")
         else:
             messages.error(request, "Judul materi tidak boleh kosong.")
 
@@ -353,12 +406,26 @@ def add_education_material(request):
 def edit_education_material(request, material_id):
     if request.method == "POST":
         try:
-            item = MateriEdukasi.objects.get(id=material_id)
+            item = EducationMaterials.objects.get(id=material_id, deleted_at__isnull=True)
             title = request.POST.get("title", "").strip()
             category = request.POST.get("category", "Edukasi").strip() or "Edukasi"
             summary = request.POST.get("summary", "").strip()
-            education_type = request.POST.get("education_type", "Link YouTube")
-            status = request.POST.get("status", "Aktif")
+            
+            type_input = request.POST.get("education_type", "youtube")
+            type_mapping = {
+                "Link YouTube": "youtube", "Artikel": "article", "PDF / Dokumen": "pdf",
+                "Gambar": "image", "Video": "video", "youtube": "youtube", "article": "article",
+                "pdf": "pdf", "image": "image", "video": "video"
+            }
+            education_type = type_mapping.get(type_input, item.education_type)
+
+            status_input = request.POST.get("status", "published")
+            status_mapping = {
+                "Aktif": "published", "Review": "review", "Draft": "draft",
+                "published": "published", "review": "review", "draft": "draft"
+            }
+            status = status_mapping.get(status_input, "published")
+
             youtube_url = request.POST.get("youtube_url", "").strip()
             article_url = request.POST.get("article_url", "").strip()
             file_upload = request.FILES.get("file_upload")
@@ -375,25 +442,32 @@ def edit_education_material(request, material_id):
                 item.summary = summary
                 item.education_type = education_type
                 item.status = status
-                item.content = content
+                item.content = content or (article_url if education_type == 'article' else item.content)
+                item.updated_at = timezone.now()
 
-                if education_type == 'Link YouTube':
+                if status == 'published' and not item.published_at:
+                    item.published_at = timezone.now()
+
+                if education_type == 'youtube':
                     item.youtube_url = youtube_url
-                    item.article_url = ''
-                elif education_type == 'Artikel':
-                    item.article_url = article_url
-                    item.youtube_url = ''
-                elif education_type in ['PDF / Dokumen', 'Gambar', 'Video']:
-                    if file_upload:
-                        item.file_upload = file_upload
-                    item.youtube_url = ''
-                    item.article_url = ''
+
+                if file_upload:
+                    fs = FileSystemStorage(location='media/education_materials/', base_url='/media/education_materials/')
+                    filename = fs.save(f"{uuid.uuid4().hex[:8]}_{file_upload.name}", file_upload)
+                    relative_path = f"education_materials/{filename}"
+
+                    if education_type == 'image':
+                        item.image_path = relative_path
+                    elif education_type == 'video':
+                        item.video_url = relative_path
+                    else:
+                        item.audio_url = relative_path
 
                 item.save()
-                messages.success(request, f"Materi edukasi '{item.title}' berhasil diperbarui (Status: {status})!")
+                messages.success(request, f"Materi edukasi '{item.title}' berhasil diperbarui (Status: {item.display_status})!")
             else:
                 messages.error(request, "Judul materi tidak boleh kosong.")
-        except MateriEdukasi.DoesNotExist:
+        except EducationMaterials.DoesNotExist:
             messages.error(request, "Materi edukasi tidak ditemukan.")
 
     return redirect("dashboard_education")
@@ -403,14 +477,16 @@ def edit_education_material(request, material_id):
 def delete_education_material(request, material_id):
     if request.method == "POST":
         try:
-            item = MateriEdukasi.objects.get(id=material_id)
+            item = EducationMaterials.objects.get(id=material_id, deleted_at__isnull=True)
             title = item.title
-            item.delete()
+            item.deleted_at = timezone.now()
+            item.save()
             messages.success(request, f"Materi edukasi '{title}' berhasil dihapus.")
-        except MateriEdukasi.DoesNotExist:
+        except EducationMaterials.DoesNotExist:
             messages.error(request, "Materi edukasi tidak ditemukan.")
 
     return redirect("dashboard_education")
+
 
 
 from .models import Kader
