@@ -1,23 +1,26 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 import csv
-from django.http import HttpResponse
 import json
-from .api_service import SiKasepAPI
+import io
+from django.http import HttpResponse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.shortcuts import render, redirect
-"""
-from .models import (
-    Citizens, Cadres, ScreeningSessions, ScreeningResults, MedicationLogs
-)
-"""
-
-from django.shortcuts import render
-import json
-from .api_service import SiKasepAPI
-
 from django.contrib.auth.models import User
+from django.db.models import Max, Count, Q
+from django.utils import timezone
+from django.utils.text import slugify
+from django.core.files.storage import FileSystemStorage
+
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+
+from .models import (
+    Citizens, Cadres, ScreeningSessions, ScreeningResults,
+    Referrals, Regions, EducationMaterials, Kader
+)
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -73,64 +76,72 @@ def logout_view(request):
 
 @login_required(login_url="login")
 def dashboard_home(request):
-    api = SiKasepAPI()
+    # Total warga unik yang sudah pernah melakukan skrining
+    total_warga = ScreeningSessions.objects.filter(
+        deleted_at__isnull=True
+    ).values('citizen_id').distinct().count()
+
+    # Kader Aktif
+    kader_aktif = Cadres.objects.filter(
+        active=1, deleted_at__isnull=True
+    ).count()
+
+    # Hasil Positif & Negatif
+    positif = ScreeningResults.objects.filter(
+        result='positive',
+        screening__deleted_at__isnull=True
+    ).count()
+
+    negatif = ScreeningResults.objects.filter(
+        result='negative',
+        screening__deleted_at__isnull=True
+    ).count()
+
+    # Data Peta & Warga Positif
+    sessions = ScreeningSessions.objects.select_related(
+        'citizen', 'cadre__user', 'screeningresults'
+    ).filter(deleted_at__isnull=True)
+
+    maps = []
+    warga_positif_list = []
+
+    for s in sessions:
+        lat = s.latitude
+        lng = s.longitude
+        
+        result_obj = getattr(s, 'screeningresults', None)
+        res_code = result_obj.result if result_obj else 'negative'
+        label = result_obj.status_label if result_obj else 'Sehat / Negatif'
+
+        if lat and lng:
+            maps.append({
+                "nama": s.citizen.name if s.citizen else "Warga",
+                "lat": float(lat),
+                "lng": float(lng),
+                "status_risiko": res_code,
+                "label": label
+            })
+
+        if res_code == 'positive':
+            warga_positif_list.append({
+                "citizen_id": s.citizen.id if s.citizen else s.id,
+                "name": s.citizen.name if s.citizen else "Warga Adat",
+                "status_label": label,
+                "date": s.screening_date,
+                "lat": float(lat) if lat else -6.6120,
+                "lng": float(lng) if lng else 106.2230
+            })
 
     context = {
-        "total_warga": 0,
-        "kader_aktif": 0,
-        "positif": 0,
-        "negatif": 0,
+        "total_warga": total_warga,
+        "kader_aktif": kader_aktif,
+        "positif": positif,
+        "negatif": negatif,
         "obat_hari_ini": 0,
-        "total_wajib_obat": 0,
-        "map_points": "[]",
-        "warga_positif_list": []
+        "total_wajib_obat": total_warga,
+        "map_points": json.dumps(maps),
+        "warga_positif_list": warga_positif_list
     }
-    # ===============================
-    # DASHBOARD SUMMARY
-    # ===============================
-    summary = api.get_dashboard_summary()
-
-    if summary:
-        totals = summary.get("totals", {})
-        context["total_warga"] = totals.get("citizens", 0)
-        context["kader_aktif"] = totals.get("active_cadres", 0)
-        context["positif"] = totals.get("positive_screenings", 0)
-        context["negatif"] = totals.get("negative_screenings", 0)
-        context["obat_hari_ini"] = totals.get("medication_reports_today", 0)
-        context["total_wajib_obat"] = totals.get("screenings", 0)
-
-    # ===============================
-    # DATA SKRINING
-    # ===============================
-    if summary:
-        maps = []
-        warga = []
-
-        for item in summary.get("mapPoints", []):
-            lat = item.get("latitude")
-            lng = item.get("longitude")
-
-            if lat and lng:
-                maps.append({
-                    "nama": item.get("citizen_name"),
-                    "lat": float(lat),
-                    "lng": float(lng),
-                    "status_risiko": item.get("result"),
-                    "label": item.get("status_label")
-                })
-
-            if item.get("result") == "positive":
-                warga.append({
-                    "citizen_id": item.get("id"),
-                    "name": item.get("citizen_name"),
-                    "status_label": item.get("status_label"),
-                    "date": item.get("screening_date"),
-                    "lat": lat,
-                    "lng": lng
-                })
-
-        context["map_points"] = json.dumps(maps)
-        context["warga_positif_list"] = warga
 
     return render(
         request,
@@ -138,80 +149,44 @@ def dashboard_home(request):
         context
     )
 
-# 2. VIEW DATA WARGA YANG SUDAH DI SKRINING
+
 @login_required(login_url="login")
 def dashboard_citizens(request):
-    api = SiKasepAPI()
-    response = api.get_screenings()
+    sessions = ScreeningSessions.objects.select_related(
+        'citizen', 'cadre__user', 'screeningresults'
+    ).filter(deleted_at__isnull=True).order_by('-screening_date')
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        sessions = sessions.filter(citizen__name__icontains=q)
+
+    search_date = request.GET.get("date", "").strip() or request.GET.get("start", "").strip()
+    if search_date:
+        sessions = sessions.filter(screening_date=search_date)
+
     skrining_list = []
-
-    # ==========================
-    # Ambil data dari API
-    # ==========================
-
-    for item in response:
+    for s in sessions:
+        res = getattr(s, 'screeningresults', None)
         skrining_list.append({
-            "citizen_id": item.get("id"),
-            "code": item.get("id"),
-            "name": item.get("patientName") or item.get("name") or "Warga Adat",
-            "officer": item.get("cadre") or item.get("cadreName") or item.get("officer") or "Kader PMO Adat",
-            "score": item.get("bmi", "-"),
-            "result": item.get("result"),
-            "status_label": item.get("screeningStatus") or item.get("status_label") or ("Positif TBC" if item.get("result") == "positive" else "Sehat / Negatif"),
-            "sync_status": item.get("sync_status") or item.get("syncStatus") or "Tersinkron",
-            "factors": item.get("reasonSummary") or item.get("factors") or "Tidak ada gejala terekam",
-            "recommendation": item.get("recommendation") or "Edukasi pencegahan rutin",
-            "date": item.get("date") or item.get("screening_date") or "-",
-            "region": item.get("region") or "Wilayah Baduy",
+            "citizen_id": s.citizen.id if s.citizen else s.id,
+            "code": s.code or f"SCR-{s.id}",
+            "name": s.citizen.name if s.citizen else "Warga Adat",
+            "officer": s.cadre.user.name if (s.cadre and s.cadre.user) else "Kader PMO Adat",
+            "score": res.score if res else "-",
+            "result": res.result if res else "negative",
+            "status_label": res.status_label if res else "Sehat / Negatif",
+            "sync_status": s.sync_status or "Tersinkron",
+            "factors": res.reason_summary if (res and res.reason_summary) else "Tidak ada gejala terekam",
+            "recommendation": res.recommendation if (res and res.recommendation) else "Edukasi pencegahan rutin",
+            "date": str(s.screening_date),
+            "region": (s.citizen.region.name if (s.citizen and s.citizen.region) else "Wilayah Baduy"),
         })
 
-    # ==========================
-    # SEARCH
-    # ==========================
-    q = request.GET.get("q", "").strip()
-
-    if q:
-        skrining_list = [
-            x for x in skrining_list
-            if q.lower() in x["name"].lower()
-        ]
-
-    # ==========================
-    # FILTER TANGGAL (SINGLE DATE)
-    # ==========================
-    search_date = request.GET.get("date", "").strip() or request.GET.get("start", "").strip()
-
-    if search_date:
-        skrining_list = [
-            x for x in skrining_list
-            if x["date"] == search_date
-        ]
-
-    # ==========================
-    # EXPORT CSV
-    # ==========================
     if request.GET.get("export") == "csv":
-
-        response = HttpResponse(
-            content_type="text/csv"
-        )
-
-        response["Content-Disposition"] = (
-            'attachment; filename="data_skrining.csv"'
-        )
-
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="data_skrining.csv"'
         writer = csv.writer(response)
-
-        writer.writerow([
-            "ID",
-            "Nama",
-            "Tanggal",
-            "Wilayah",
-            "Status",
-            "BMI",
-            "Rekomendasi"
-        ])
-
+        writer.writerow(["ID", "Nama", "Tanggal", "Wilayah", "Status", "BMI", "Rekomendasi"])
         for item in skrining_list:
             writer.writerow([
                 item["citizen_id"],
@@ -222,8 +197,8 @@ def dashboard_citizens(request):
                 item["score"],
                 item["recommendation"],
             ])
-
         return response
+
     return render(
         request,
         "dashboard/citizens.html",
@@ -234,11 +209,22 @@ def dashboard_citizens(request):
         }
     )
 
+
 @login_required(login_url="login")
 def dashboard_reports(request):
-    api = SiKasepAPI()
+    total_skrining = ScreeningSessions.objects.filter(deleted_at__isnull=True).count()
+    total_positif = ScreeningResults.objects.filter(result='positive', screening__deleted_at__isnull=True).count()
+    total_rujukan = Referrals.objects.filter(deleted_at__isnull=True).count()
+    total_kader = Cadres.objects.filter(active=1, deleted_at__isnull=True).count()
 
-    summary = api.get_dashboard_summary()
+    summary = {
+        "totals": {
+            "screenings": total_skrining,
+            "positive_screenings": total_positif,
+            "referrals": total_rujukan,
+            "active_cadres": total_kader
+        }
+    }
 
     return render(
         request,
@@ -248,40 +234,122 @@ def dashboard_reports(request):
             "regions": []
         }
     )
-    
+
+
 @login_required(login_url="login")
 def export_screening_pdf(request):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
 
-    api = SiKasepAPI()
-
-    params = {
-        "periodStart": request.GET.get("start"),
-        "periodEnd": request.GET.get("end"),
-        "result": request.GET.get("result"),
-        "regionId": request.GET.get("region"),
-        "cadreId": request.GET.get("cadre"),
-    }
-
-    params = {k: v for k, v in params.items() if v}
-
-    pdf = api.download_screening_pdf(params)
-
-    if pdf is None:
-        return HttpResponse(
-            "Gagal membuat PDF.",
-            status=500
-        )
-
-    response = HttpResponse(
-        pdf,
-        content_type="application/pdf"
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=16,
+        leading=20,
+        textColor=colors.HexColor('#0c2335'),
+        alignment=1
+    )
+    subtitle_style = ParagraphStyle(
+        'DocSubTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9,
+        leading=13,
+        textColor=colors.HexColor('#64748b'),
+        alignment=1
+    )
+    cell_style = ParagraphStyle(
+        'CellText',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9,
+        leading=12
     )
 
-    response["Content-Disposition"] = (
-        'attachment; filename="laporan_skrining.pdf"'
-    )
+    elements = []
 
+    # Title & Subtitle
+    elements.append(Paragraph("LAPORAN PENCEGAHAN TUBERKULOSIS (SI-KASEP BADUY)", title_style))
+    elements.append(Spacer(1, 4))
+    elements.append(Paragraph(f"Tanggal Cetak: {timezone.now().strftime('%d %B %Y %H:%M')}", subtitle_style))
+    elements.append(Spacer(1, 14))
+
+    # Ringkasan Statistik Box
+    total_skrining = ScreeningSessions.objects.filter(deleted_at__isnull=True).count()
+    total_positif = ScreeningResults.objects.filter(result='positive', screening__deleted_at__isnull=True).count()
+    total_negatif = ScreeningResults.objects.filter(result='negative', screening__deleted_at__isnull=True).count()
+    total_rujukan = Referrals.objects.filter(deleted_at__isnull=True).count()
+
+    stat_data = [
+        [
+            Paragraph(f"<b>Total Skrining:</b> {total_skrining}", cell_style),
+            Paragraph(f"<b>Hasil Positif:</b> {total_positif}", cell_style),
+            Paragraph(f"<b>Hasil Negatif:</b> {total_negatif}", cell_style),
+            Paragraph(f"<b>Total Rujukan:</b> {total_rujukan}", cell_style),
+        ]
+    ]
+    stat_table = Table(stat_data, colWidths=[135, 135, 135, 135])
+    stat_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f1f5f9')),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e1')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('PADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(stat_table)
+    elements.append(Spacer(1, 14))
+
+    # Tabel Data
+    headers = [
+        Paragraph("<b>No</b>", cell_style),
+        Paragraph("<b>Nama Warga</b>", cell_style),
+        Paragraph("<b>Tanggal</b>", cell_style),
+        Paragraph("<b>Petugas / Kader</b>", cell_style),
+        Paragraph("<b>Hasil Skrining</b>", cell_style),
+    ]
+    table_data = [headers]
+
+    sessions = ScreeningSessions.objects.select_related(
+        'citizen', 'cadre__user', 'screeningresults'
+    ).filter(deleted_at__isnull=True).order_by('-screening_date')[:50]
+
+    for idx, s in enumerate(sessions, start=1):
+        res = getattr(s, 'screeningresults', None)
+        lbl = res.status_label if res else ("Positif TBC" if (res and res.result == 'positive') else "Sehat / Negatif")
+        name = s.citizen.name if s.citizen else "Warga Adat"
+        officer = s.cadre.user.name if (s.cadre and s.cadre.user) else "Kader PMO"
+        date_str = str(s.screening_date)
+
+        table_data.append([
+            Paragraph(str(idx), cell_style),
+            Paragraph(name, cell_style),
+            Paragraph(date_str, cell_style),
+            Paragraph(officer, cell_style),
+            Paragraph(lbl, cell_style),
+        ])
+
+    data_table = Table(table_data, colWidths=[30, 150, 80, 140, 140])
+    data_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0c2335')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('TOPPADDING', (0, 0), (-1, 0), 6),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('PADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(data_table)
+
+    doc.build(elements)
+    pdf = buffer.getvalue()
+    buffer.close()
+
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="laporan_skrining.pdf"'
     return response
+
 
 
 import uuid
@@ -464,53 +532,67 @@ from .models import Kader
 
 @login_required(login_url="login")
 def dashboard_cadres(request):
-    api = SiKasepAPI()
-    api_cadres = api.get_cadres() or []
-    local_cadres = list(Kader.objects.all())
+    cadres = Cadres.objects.select_related('user', 'region').filter(deleted_at__isnull=True)
     
     cadres_list = []
-    
-    # Process API cadres if available
-    for item in api_cadres:
-        cadres_list.append({
-            "id": item.get("id"),
-            "cadre_code": item.get("cadre_code") or f"KD-{item.get('id', '001')}",
-            "name": item.get("name") or item.get("user", {}).get("name", "Kader Kesehatan"),
-            "region": item.get("region_name") or item.get("assigned_area") or "Kawasan Baduy",
-            "phone": item.get("phone") or item.get("user", {}).get("phone", "-"),
-            "status": "Aktif" if item.get("active", 1) else "Non-Aktif",
-            "screening_count": item.get("screening_count", 0),
-            "last_active": item.get("updated_at") or "-",
-            "is_local": False,
-        })
+    for c in cadres:
+        s_count = ScreeningSessions.objects.filter(cadre=c, deleted_at__isnull=True).count()
+        last_s = ScreeningSessions.objects.filter(cadre=c, deleted_at__isnull=True).aggregate(latest=Max('screening_date'))['latest']
         
-    # Add local cadres
-    for item in local_cadres:
+        region_name = c.region.name if c.region else (c.assigned_area or "Kawasan Baduy")
+        user_name = c.user.name if (c.user and c.user.name) else f"Kader {c.cadre_code}"
+        user_phone = c.user.phone if (c.user and c.user.phone) else "-"
+        
         cadres_list.append({
-            "id": item.id,
-            "cadre_code": item.cadre_code,
-            "name": item.name,
-            "region": item.region,
-            "phone": item.phone or "-",
-            "status": item.status,
-            "screening_count": item.screening_count,
-            "last_active": item.last_active.strftime("%d %b %Y %H:%M") if item.last_active else "-",
-            "is_local": True,
+            "id": c.id,
+            "cadre_code": c.cadre_code,
+            "name": user_name,
+            "region": region_name,
+            "phone": user_phone,
+            "status": "Aktif" if c.active == 1 else "Non-Aktif",
+            "screening_count": s_count,
+            "last_active": last_s.strftime("%d %b %Y") if last_s else "-",
+            "is_local": False,
         })
         
     kader_aktif = sum(1 for c in cadres_list if c["status"] == "Aktif")
     total_wilayah = len(set(c["region"] for c in cadres_list if c.get("region")))
     total_catatan = sum(c["screening_count"] for c in cadres_list)
-    tersimpan_lokal = len(local_cadres)
 
     context = {
         "cadres_list": cadres_list,
         "kader_aktif": kader_aktif,
         "total_wilayah": total_wilayah,
         "total_catatan": total_catatan,
-        "tersimpan_lokal": tersimpan_lokal,
+        "tersimpan_lokal": len(cadres_list),
     }
     return render(request, "dashboard/cadres.html", context)
+
+
+@login_required(login_url="login")
+def dashboard_referrals(request):
+    referrals = Referrals.objects.select_related(
+        'citizen', 'screening', 'created_by_user'
+    ).filter(deleted_at__isnull=True).order_by('-created_at')
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        referrals = referrals.filter(
+            Q(referral_code__icontains=q) |
+            Q(citizen__name__icontains=q) |
+            Q(destination__icontains=q)
+        )
+
+    status_filter = request.GET.get("status", "").strip()
+    if status_filter:
+        referrals = referrals.filter(status=status_filter)
+
+    context = {
+        "referrals": referrals,
+        "search_q": q,
+        "status_filter": status_filter,
+    }
+    return render(request, "dashboard/referrals.html", context)
 
 
 @login_required(login_url="login")

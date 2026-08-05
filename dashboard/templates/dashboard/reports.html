@@ -147,139 +147,30 @@
 
     </div>
 
-    <!-- Distribusi -->
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-        <div class="bg-white rounded-xl shadow border p-5">
-
-            <h2 class="font-bold mb-4">
-                Distribusi Wilayah
-            </h2>
-
-            {% for item in summary.byRegion %}
-
-                <div class="mb-4">
-
-                    <div class="flex justify-between text-sm">
-
-                        <span>{{ item.region }}</span>
-
-                        <span>{{ item.total }}</span>
-
-                    </div>
-
-                    <div class="w-full bg-slate-200 rounded-full h-2 mt-2">
-
-                        <div
-                            class="bg-[#0c2335] h-2 rounded-full"
-                            style="width:{{ item.percent }}%">
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            {% empty %}
-
-                <p class="text-slate-400">
-                    Belum ada data.
-                </p>
-
-            {% endfor %}
-
-        </div>
-
-        <div class="bg-white rounded-xl shadow border p-5">
-
-            <h2 class="font-bold mb-4">
-
-                Aktivitas Kader
-
-            </h2>
-
-            {% for item in summary.cadreActivities %}
-
-                <div class="mb-4">
-
-                    <div class="flex justify-between text-sm">
-
-                        <span>{{ item.name }}</span>
-
-                        <span>{{ item.total }}</span>
-
-                    </div>
-
-                    <div class="w-full bg-slate-200 rounded-full h-2 mt-2">
-
-                        <div
-                            class="bg-blue-600 h-2 rounded-full"
-                            style="width:{{ item.percent }}%">
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            {% empty %}
-
-                <p class="text-slate-400">
-                    Belum ada data.
-                </p>
-
-            {% endfor %}
-
-        </div>
-
-    </div>
-
-    <!-- Ringkasan -->
-
-    <div class="bg-white rounded-xl shadow border p-6">
-
-        <h2 class="font-bold text-lg mb-4">
-
-            Narasi Ringkasan
-
+    <!-- Ringkasan Narasi -->
+    <div class="bg-white rounded-xl shadow border border-slate-200 p-6">
+        <h2 class="font-bold text-lg text-slate-900 mb-4">
+            Narasi Ringkasan Skrining
         </h2>
 
-        <ul class="space-y-3 text-sm">
-
-            <li>
-                ✅ Total skrining yang telah dilakukan adalah
-                <b>{{ summary.totals.screenings|default:0 }}</b>.
+        <ul class="space-y-3 text-sm text-slate-700">
+            <li class="flex items-center gap-2">
+                <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                <span>Sampai saat ini telah dilakukan <b>{{ summary.totals.screenings|default:0 }}</b> skrining terhadap warga.</span>
             </li>
-
-            <li>
-
-                ✅ Hasil positif sebanyak
-
-                <b>{{ summary.totals.positive_screenings|default:0 }}</b>
-
-                warga.
-
+            <li class="flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-rose-600"></i>
+                <span>Sebanyak <b>{{ summary.totals.positive_screenings|default:0 }}</b> warga terindikasi positif TBC.</span>
             </li>
-
-            <li>
-
-                ✅ Jumlah warga terdaftar sebanyak
-
-                <b>{{ summary.totals.citizens|default:0 }}</b>.
-
+            <li class="flex items-center gap-2">
+                <i class="fa-solid fa-hospital-user text-blue-600"></i>
+                <span>Total data rujukan faskes tercatat sebanyak <b>{{ summary.totals.referrals|default:0 }}</b> rujukan.</span>
             </li>
-
-            <li>
-
-                ✅ Data berasal dari API SI-KASEP.
-
+            <li class="flex items-center gap-2">
+                <i class="fa-solid fa-database text-slate-600"></i>
+                <span>Dashboard menggunakan data langsung dari database SI-KASEP.</span>
             </li>
-
         </ul>
-
     </div>
-
 </div>
-
 {% endblock %}

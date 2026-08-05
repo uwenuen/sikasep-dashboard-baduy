@@ -85,6 +85,11 @@
                     <span>Kader</span>
                 </a>
 
+                <a href="{% url 'dashboard_referrals' %}" onclick="closeSidebarOnMobile()" class="flex items-center space-x-3 px-4 py-3 rounded-xl transition {% if request.resolver_match.url_name == 'dashboard_referrals' %}bg-white/15 text-white font-semibold shadow-inner{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}">
+                    <i class="fa-solid fa-hospital-user w-5"></i>
+                    <span>Rujukan</span>
+                </a>
+
             </nav>
         </div>
 

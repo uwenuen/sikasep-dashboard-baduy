@@ -18,6 +18,7 @@ urlpatterns = [
     path('cadres/add/', views.add_cadre, name='add_cadre'),
     path('cadres/edit/<int:cadre_id>/', views.edit_cadre, name='edit_cadre'),
     path('cadres/delete/<int:cadre_id>/', views.delete_cadre, name='delete_cadre'),
+    path('referrals/', views.dashboard_referrals, name='dashboard_referrals'),
 ]
 
 """
