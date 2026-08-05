@@ -30,6 +30,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1",
 ]
 
+FORCE_SCRIPT_NAME = os.getenv("FORCE_SCRIPT_NAME", "/sikasep")
+
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
