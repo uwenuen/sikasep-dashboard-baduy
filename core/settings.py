@@ -20,6 +20,7 @@ ALLOWED_HOSTS = [
     "103.28.161.35",
     "127.0.0.1",
     "localhost",
+    "lab1.trisakti.ac.id",
     "*",
 ]
 
@@ -28,6 +29,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://103.28.161.35",
     "http://localhost",
     "http://127.0.0.1",
+    "https://lab1.trisakti.ac.id",
 ]
 
 FORCE_SCRIPT_NAME = os.getenv("FORCE_SCRIPT_NAME", "/sikasep")
