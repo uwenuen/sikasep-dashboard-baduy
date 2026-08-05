@@ -304,6 +304,18 @@ def dashboard_reports(request):
     )
 
 
+def format_indo_date(date_str):
+    if not date_str or date_str in ["-", "None", ""]:
+        return "Semua Waktu"
+    try:
+        months = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+                  "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+        dt = timezone.datetime.strptime(date_str, "%Y-%m-%d")
+        return f"{dt.day} {months[dt.month]} {dt.year}"
+    except Exception:
+        return date_str
+
+
 @login_required(login_url="login")
 def export_screening_pdf(request):
     buffer = io.BytesIO()
@@ -320,7 +332,7 @@ def export_screening_pdf(request):
         fontName='Helvetica-Bold',
         fontSize=15,
         leading=18,
-        textColor=colors.HexColor('#0c2335'),
+        textColor=colors.HexColor('#000000'),
         alignment=1
     )
     sub_header_style = ParagraphStyle(
@@ -329,7 +341,7 @@ def export_screening_pdf(request):
         fontName='Helvetica-Bold',
         fontSize=11,
         leading=14,
-        textColor=colors.HexColor('#0284c7'),
+        textColor=colors.HexColor('#0c2335'),
         alignment=1
     )
     puskesmas_style = ParagraphStyle(
@@ -341,76 +353,144 @@ def export_screening_pdf(request):
         textColor=colors.HexColor('#334155'),
         alignment=1
     )
-    meta_style = ParagraphStyle(
-        'MetaText',
+    
+    meta_label_style = ParagraphStyle(
+        'MetaLabel',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        leading=13,
+        textColor=colors.HexColor('#000000')
+    )
+    meta_colon_style = ParagraphStyle(
+        'MetaColon',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        leading=13,
+        textColor=colors.HexColor('#000000'),
+        alignment=1
+    )
+    meta_val_style = ParagraphStyle(
+        'MetaVal',
         parent=styles['Normal'],
         fontName='Helvetica',
         fontSize=9,
         leading=13,
-        textColor=colors.HexColor('#475569')
+        textColor=colors.HexColor('#000000')
     )
+
+    stat_cell_style = ParagraphStyle(
+        'StatCell',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9,
+        leading=13,
+        textColor=colors.HexColor('#000000')
+    )
+
+    body_style = ParagraphStyle(
+        'BodyTextCustom',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9,
+        leading=13,
+        textColor=colors.HexColor('#1e293b')
+    )
+    
+    table_header_style = ParagraphStyle(
+        'TableHeader',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor('#000000'),
+        alignment=1
+    )
+
     cell_style = ParagraphStyle(
         'CellText',
         parent=styles['Normal'],
         fontName='Helvetica',
         fontSize=8.5,
-        leading=11
+        leading=11,
+        textColor=colors.HexColor('#000000')
     )
+    
     footer_style = ParagraphStyle(
         'DocFooter',
         parent=styles['Normal'],
         fontName='Helvetica-Oblique',
         fontSize=8,
         leading=10,
-        textColor=colors.HexColor('#64748b'),
+        textColor=colors.HexColor('#475569'),
         alignment=1
     )
 
     elements = []
 
-    # Title & Header
+    # 1. Header & Kop Dokumen
     elements.append(Paragraph("LAPORAN HASIL SKRINING", header_style))
     elements.append(Spacer(1, 2))
     elements.append(Paragraph("SISTEM INFORMASI PENCEGAHAN TBC (SI-KASEP BADUY)", sub_header_style))
     elements.append(Spacer(1, 2))
-    elements.append(Paragraph("Puskesmas Leuwidamar - Kabupaten Lebak", puskesmas_style))
+    elements.append(Paragraph("Puskesmas Cisimeut - Kabupaten Lebak", puskesmas_style))
     elements.append(Spacer(1, 10))
 
-    start_date = request.GET.get("start", "-")
-    end_date = request.GET.get("end", "-")
-    periode_str = f"{start_date} s/d {end_date}" if (start_date != "-" and end_date != "-") else "Semua Waktu"
+    # 2. Blok Identitas Laporan (Rata Kiri Vertikal Table)
+    months_indo = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+                   "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+    now = timezone.now()
+    now_str = f"{now.day} {months_indo[now.month]} {now.year} {now.strftime('%H:%M')}"
 
-    meta_table_data = [
-        [
-            Paragraph(f"<b>Tanggal Cetak :</b> {timezone.now().strftime('%d %B %Y %H:%M')}", meta_style),
-            Paragraph(f"<b>Periode :</b> {periode_str}", meta_style)
-        ]
+    start_raw = request.GET.get("start", "").strip()
+    end_raw = request.GET.get("end", "").strip()
+
+    if start_raw and end_raw:
+        periode_val = f"{format_indo_date(start_raw)} – {format_indo_date(end_raw)}"
+    elif start_raw:
+        periode_val = f"Mulai {format_indo_date(start_raw)}"
+    elif end_raw:
+        periode_val = f"Sampai {format_indo_date(end_raw)}"
+    else:
+        periode_val = "Semua Waktu"
+
+    region_raw = request.GET.get("region", "").strip()
+    wilayah_val = region_raw if region_raw else "Semua Wilayah"
+    petugas_val = "Semua Kader"
+
+    meta_rows = [
+        [Paragraph("Tanggal Cetak", meta_label_style), Paragraph(":", meta_colon_style), Paragraph(now_str, meta_val_style)],
+        [Paragraph("Periode", meta_label_style), Paragraph(":", meta_colon_style), Paragraph(periode_val, meta_val_style)],
+        [Paragraph("Wilayah", meta_label_style), Paragraph(":", meta_colon_style), Paragraph(wilayah_val, meta_val_style)],
+        [Paragraph("Petugas", meta_label_style), Paragraph(":", meta_colon_style), Paragraph(petugas_val, meta_val_style)],
     ]
-    meta_table = Table(meta_table_data, colWidths=[270, 270])
+    meta_table = Table(meta_rows, colWidths=[90, 15, 435])
     meta_table.setStyle(TableStyle([
-        ('PADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('PADDING', (0, 0), (-1, -1), 1.5),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
     elements.append(meta_table)
-
-    divider_data = [[""]]
-    divider_table = Table(divider_data, colWidths=[540])
-    divider_table.setStyle(TableStyle([
-        ('LINEABOVE', (0, 0), (-1, -1), 1.5, colors.HexColor('#0c2335')),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    elements.append(divider_table)
     elements.append(Spacer(1, 10))
 
+    # Fetch Data
     sessions = ScreeningSessions.objects.select_related(
         'citizen', 'cadre__user', 'screeningresults'
     ).filter(deleted_at__isnull=True).order_by('-screening_date')
 
-    if start_date != "-":
-        sessions = sessions.filter(screening_date__gte=start_date)
-    if end_date != "-":
-        sessions = sessions.filter(screening_date__lte=end_date)
+    if start_raw:
+        sessions = sessions.filter(screening_date__gte=start_raw)
+    if end_raw:
+        sessions = sessions.filter(screening_date__lte=end_raw)
+    if region_raw:
+        sessions = sessions.filter(
+            Q(citizen__region__name__icontains=region_raw) |
+            Q(cadre__region__name__icontains=region_raw)
+        )
+
+    res_filter = request.GET.get("result", "").strip()
+    if res_filter:
+        sessions = sessions.filter(screeningresults__result=res_filter)
 
     report_items = []
     for s in sessions:
@@ -419,9 +499,12 @@ def export_screening_pdf(request):
         res_label = res.status_label if res else ("Positif TBC" if res_code == 'positive' else "Sehat / Negatif")
         ref = Referrals.objects.filter(Q(screening=s) | Q(citizen=s.citizen), deleted_at__isnull=True).first()
         status_rujukan = "Sudah" if ref else "Belum"
+        nik_code = s.citizen.nik if (s.citizen and s.citizen.nik) else f"SB-{s.citizen.id if s.citizen else s.id}"
+
         report_items.append({
             "date": s.screening_date.strftime("%d/%m/%Y") if s.screening_date else "-",
             "citizen_name": s.citizen.name if s.citizen else "Warga Adat",
+            "nik": nik_code,
             "region": s.citizen.region.name if (s.citizen and s.citizen.region) else "Wilayah Baduy",
             "cadre_name": s.cadre.user.name if (s.cadre and s.cadre.user) else "Kader PMO",
             "result_label": res_label,
@@ -434,32 +517,45 @@ def export_screening_pdf(request):
     tot_negatif = sum(1 for x in report_items if x["result_code"] == 'negative')
     tot_rujukan = sum(1 for x in report_items if x["referral_status"] != 'Belum')
 
+    # 3. Ringkasan Statistik Formal (Dua Garis Pembatas Tipis Atas-Bawah)
     stat_data = [
         [
-            Paragraph(f"<b>Total Skrining :</b> {tot_skrining}", meta_style),
-            Paragraph(f"<b>Positif :</b> {tot_positif}", meta_style),
-            Paragraph(f"<b>Negatif :</b> {tot_negatif}", meta_style),
-            Paragraph(f"<b>Rujukan :</b> {tot_rujukan}", meta_style),
+            Paragraph(f"<b>Total Skrining :</b> {tot_skrining}", stat_cell_style),
+            Paragraph(f"<b>Positif :</b> {tot_positif}", stat_cell_style),
+            Paragraph(f"<b>Negatif :</b> {tot_negatif}", stat_cell_style),
+            Paragraph(f"<b>Rujukan :</b> {tot_rujukan}", stat_cell_style),
         ]
     ]
     stat_table = Table(stat_data, colWidths=[135, 135, 135, 135])
     stat_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e1')),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('LINEABOVE', (0, 0), (-1, -1), 1, colors.HexColor('#475569')),
+        ('LINEBELOW', (0, 0), (-1, -1), 1, colors.HexColor('#475569')),
         ('PADDING', (0, 0), (-1, -1), 6),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
     ]))
     elements.append(stat_table)
-    elements.append(Spacer(1, 12))
+    elements.append(Spacer(1, 10))
 
+    # 4. Paragraf Pengantar Ringkasan (Sebelum Tabel)
+    elements.append(Paragraph("<b>Ringkasan</b>", body_style))
+    elements.append(Spacer(1, 2))
+    elements.append(Paragraph(
+        "Laporan ini menyajikan hasil skrining Tuberkulosis berdasarkan data yang tercatat "
+        "pada Sistem Informasi Pencegahan TBC (SI-KASEP) sesuai periode dan wilayah yang dipilih.",
+        body_style
+    ))
+    elements.append(Spacer(1, 10))
+
+    # 5. Tabel 8 Kolom Presisi (Black-and-White Friendly)
     headers = [
-        Paragraph("<b>No</b>", cell_style),
-        Paragraph("<b>Tanggal</b>", cell_style),
-        Paragraph("<b>Nama Warga</b>", cell_style),
-        Paragraph("<b>Wilayah</b>", cell_style),
-        Paragraph("<b>Kader</b>", cell_style),
-        Paragraph("<b>Hasil</b>", cell_style),
-        Paragraph("<b>Status Rujukan</b>", cell_style),
+        Paragraph("<b>No</b>", table_header_style),
+        Paragraph("<b>Tanggal Skrining</b>", table_header_style),
+        Paragraph("<b>Nama Warga</b>", table_header_style),
+        Paragraph("<b>NIK</b>", table_header_style),
+        Paragraph("<b>Wilayah</b>", table_header_style),
+        Paragraph("<b>Kader</b>", table_header_style),
+        Paragraph("<b>Hasil Skrining</b>", table_header_style),
+        Paragraph("<b>Status Rujukan</b>", table_header_style),
     ]
     table_data = [headers]
 
@@ -468,26 +564,26 @@ def export_screening_pdf(request):
             Paragraph(str(idx), cell_style),
             Paragraph(item["date"], cell_style),
             Paragraph(item["citizen_name"], cell_style),
+            Paragraph(item["nik"], cell_style),
             Paragraph(item["region"], cell_style),
             Paragraph(item["cadre_name"], cell_style),
             Paragraph(item["result_label"], cell_style),
             Paragraph(item["referral_status"], cell_style),
         ])
 
-    data_table = Table(table_data, colWidths=[25, 60, 110, 95, 95, 80, 75])
+    data_table = Table(table_data, colWidths=[22, 62, 100, 75, 80, 75, 66, 60])
     data_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0c2335')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e2e8f0')),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
-        ('TOPPADDING', (0, 0), (-1, 0), 5),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
-        ('PADDING', (0, 0), (-1, -1), 5),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
+        ('PADDING', (0, 0), (-1, -1), 4.5),
     ]))
     elements.append(data_table)
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 16))
 
+    # 6. Footer Resmi
     elements.append(Paragraph("Dokumen ini dihasilkan otomatis oleh Sistem Informasi Pencegahan TBC (SI-KASEP).", footer_style))
 
     doc.build(elements)
@@ -495,7 +591,7 @@ def export_screening_pdf(request):
     buffer.close()
 
     response = HttpResponse(pdf, content_type="application/pdf")
-    response["Content-Disposition"] = 'attachment; filename="laporan_skrining_puskesmas.pdf"'
+    response["Content-Disposition"] = 'attachment; filename="laporan_skrining_puskesmas_cisimeut.pdf"'
     return response
 
 
