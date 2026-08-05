@@ -332,6 +332,7 @@ function openAddModal() {
     selectStatus.innerHTML = `
         <option value="draft" selected>Draft</option>
         <option value="review">Review</option>
+        <option value="published">Aktif</option>
     `;
 
     document.getElementById('inputTitle').value = '';
@@ -349,7 +350,7 @@ function openAddModal() {
 
 function openEditModal(id, title, category, summary, type, status, youtubeUrl, content) {
     document.getElementById('modalTitle').innerText = 'Edit Materi';
-    document.getElementById('materialForm').action = "/education/edit/" + id + "/";
+    document.getElementById('materialForm').action = "{% url 'edit_education_material' 0 %}".replace('0', id);
     document.getElementById('btnSubmit').innerText = 'Update Materi';
 
     const selectStatus = document.getElementById('selectStatus');

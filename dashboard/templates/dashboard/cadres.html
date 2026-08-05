@@ -251,7 +251,7 @@ function openAddCadreModal() {
 
 function openEditCadreModal(id, code, name, region, phone, status) {
     document.getElementById('cadreModalTitle').innerText = 'Edit Data Kader';
-    document.getElementById('cadreForm').action = "/cadres/edit/" + id + "/";
+    document.getElementById('cadreForm').action = "{% url 'edit_cadre' 0 %}".replace('0', id);
     document.getElementById('cadreBtnSubmit').innerText = 'Update Kader';
 
     document.getElementById('cadreInputCode').value = code || '';
