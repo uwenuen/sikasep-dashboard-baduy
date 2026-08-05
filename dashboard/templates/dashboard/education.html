@@ -252,10 +252,7 @@
                     <select id="selectType" name="education_type" onchange="handleTypeChange(this.value)"
                             class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
                         <option value="youtube" selected>Link YouTube</option>
-                        <option value="article">Artikel</option>
-                        <option value="pdf">PDF / Dokumen</option>
                         <option value="image">Gambar</option>
-                        <option value="video">Video</option>
                     </select>
                 </div>
 
@@ -279,38 +276,16 @@
                        class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
             </div>
 
-            <!-- Field 2: Link Artikel -->
-            <div id="fieldArticle" class="hidden">
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Link Artikel</label>
-                <input type="text" id="inputArticle" name="article_url" 
-                       placeholder="https://..."
-                       class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition">
-            </div>
-
-            <!-- Field 3: File PDF / Dokumen -->
-            <div id="fieldPdf" class="hidden">
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">File PDF / Dokumen</label>
-                <input type="file" id="inputPdf" name="file_upload" accept=".pdf,.doc,.docx" disabled
-                       class="w-full px-3.5 py-1.5 bg-white border border-slate-300 rounded-xl text-sm file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0c2335] file:text-white hover:file:bg-[#16365d] transition">
-            </div>
-
-            <!-- Field 4: Upload Gambar -->
+            <!-- Field 2: Upload Gambar -->
             <div id="fieldGambar" class="hidden">
                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Upload Gambar</label>
                 <input type="file" id="inputGambar" name="file_upload" accept="image/*" disabled
                        class="w-full px-3.5 py-1.5 bg-white border border-slate-300 rounded-xl text-sm file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0c2335] file:text-white hover:file:bg-[#16365d] transition">
             </div>
 
-            <!-- Field 5: Upload Video -->
-            <div id="fieldVideo" class="hidden">
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Upload Video</label>
-                <input type="file" id="inputVideo" name="file_upload" accept="video/*" disabled
-                       class="w-full px-3.5 py-1.5 bg-white border border-slate-300 rounded-xl text-sm file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0c2335] file:text-white hover:file:bg-[#16365d] transition">
-            </div>
-
             <!-- Row 5: Konten Tambahan -->
             <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Konten Tambahan / Isi Artikel</label>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Konten / Teks Edukasi</label>
                 <textarea id="inputContent" name="content" rows="3"
                           class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0c2335] transition" placeholder="..."></textarea>
             </div>
@@ -333,36 +308,18 @@
 <script>
 function handleTypeChange(type) {
     const fieldYoutube = document.getElementById('fieldYoutube');
-    const fieldArticle = document.getElementById('fieldArticle');
-    const fieldPdf = document.getElementById('fieldPdf');
     const fieldGambar = document.getElementById('fieldGambar');
-    const fieldVideo = document.getElementById('fieldVideo');
-
-    const inputPdf = document.getElementById('inputPdf');
     const inputGambar = document.getElementById('inputGambar');
-    const inputVideo = document.getElementById('inputVideo');
 
-    [fieldYoutube, fieldArticle, fieldPdf, fieldGambar, fieldVideo].forEach(el => {
-        if(el) el.classList.add('hidden');
-    });
-
-    [inputPdf, inputGambar, inputVideo].forEach(input => {
-        if(input) input.disabled = true;
-    });
+    if (fieldYoutube) fieldYoutube.classList.add('hidden');
+    if (fieldGambar) fieldGambar.classList.add('hidden');
+    if (inputGambar) inputGambar.disabled = true;
 
     if (type === 'youtube' || type === 'Link YouTube') {
-        fieldYoutube.classList.remove('hidden');
-    } else if (type === 'article' || type === 'Artikel') {
-        fieldArticle.classList.remove('hidden');
-    } else if (type === 'pdf' || type === 'PDF / Dokumen') {
-        fieldPdf.classList.remove('hidden');
-        if(inputPdf) inputPdf.disabled = false;
+        if (fieldYoutube) fieldYoutube.classList.remove('hidden');
     } else if (type === 'image' || type === 'Gambar') {
-        fieldGambar.classList.remove('hidden');
-        if(inputGambar) inputGambar.disabled = false;
-    } else if (type === 'video' || type === 'Video') {
-        fieldVideo.classList.remove('hidden');
-        if(inputVideo) inputVideo.disabled = false;
+        if (fieldGambar) fieldGambar.classList.remove('hidden');
+        if (inputGambar) inputGambar.disabled = false;
     }
 }
 
@@ -382,7 +339,6 @@ function openAddModal() {
     document.getElementById('inputSummary').value = '';
     document.getElementById('selectType').value = 'youtube';
     document.getElementById('inputYoutube').value = '';
-    document.getElementById('inputArticle').value = '';
     document.getElementById('inputContent').value = '';
 
     handleTypeChange('youtube');
@@ -408,11 +364,7 @@ function openEditModal(id, title, category, summary, type, status, youtubeUrl, c
     document.getElementById('inputSummary').value = summary || '';
     
     let typeVal = 'youtube';
-    if (type === 'youtube' || type === 'Link YouTube') typeVal = 'youtube';
-    else if (type === 'article' || type === 'Artikel') typeVal = 'article';
-    else if (type === 'pdf' || type === 'PDF / Dokumen') typeVal = 'pdf';
-    else if (type === 'image' || type === 'Gambar') typeVal = 'image';
-    else if (type === 'video' || type === 'Video') typeVal = 'video';
+    if (type === 'image' || type === 'Gambar') typeVal = 'image';
 
     document.getElementById('selectType').value = typeVal;
 

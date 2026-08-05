@@ -300,7 +300,7 @@ def dashboard_education(request):
     draft_review_count = materials.filter(status__in=['draft', 'review']).count()
     
     media_tersedia_count = materials.filter(
-        Q(youtube_url__gt='') | Q(image_path__gt='') | Q(video_url__gt='') | Q(audio_url__gt='')
+        Q(youtube_url__gt='') | Q(image_path__gt='')
     ).count()
 
     context = {
@@ -323,15 +323,9 @@ def add_education_material(request):
         type_input = request.POST.get("education_type", "youtube")
         type_mapping = {
             "Link YouTube": "youtube",
-            "Artikel": "article",
-            "PDF / Dokumen": "pdf",
             "Gambar": "image",
-            "Video": "video",
             "youtube": "youtube",
-            "article": "article",
-            "pdf": "pdf",
-            "image": "image",
-            "video": "video"
+            "image": "image"
         }
         education_type = type_mapping.get(type_input, "youtube")
 
@@ -347,30 +341,18 @@ def add_education_material(request):
         status = status_mapping.get(status_input, "draft")
 
         youtube_url = request.POST.get("youtube_url", "").strip()
-        article_url = request.POST.get("article_url", "").strip()
         file_upload = request.FILES.get("file_upload")
         content = request.POST.get("content", "").strip()
 
         if youtube_url and not youtube_url.startswith(("http://", "https://")):
             youtube_url = "https://" + youtube_url
-        if article_url and not article_url.startswith(("http://", "https://")):
-            article_url = "https://" + article_url
 
         image_path = None
-        video_url = None
-        audio_url = None
 
-        if file_upload:
+        if file_upload and education_type == 'image':
             fs = FileSystemStorage(location='media/education_materials/', base_url='/media/education_materials/')
             filename = fs.save(f"{uuid.uuid4().hex[:8]}_{file_upload.name}", file_upload)
-            relative_path = f"education_materials/{filename}"
-
-            if education_type == 'image':
-                image_path = relative_path
-            elif education_type == 'video':
-                video_url = relative_path
-            else:
-                audio_url = relative_path
+            image_path = f"education_materials/{filename}"
 
         base_slug = slugify(title) if title else "materi-edukasi"
         slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
@@ -384,12 +366,10 @@ def add_education_material(request):
                 title=title,
                 category=category,
                 summary=summary,
-                content=content or (article_url if education_type == 'article' else ''),
+                content=content,
                 education_type=education_type,
                 youtube_url=youtube_url if education_type == 'youtube' else None,
-                image_path=image_path,
-                video_url=video_url,
-                audio_url=audio_url,
+                image_path=image_path if education_type == 'image' else None,
                 status=status,
                 published_at=published_at,
                 created_at=now,
@@ -413,9 +393,8 @@ def edit_education_material(request, material_id):
             
             type_input = request.POST.get("education_type", "youtube")
             type_mapping = {
-                "Link YouTube": "youtube", "Artikel": "article", "PDF / Dokumen": "pdf",
-                "Gambar": "image", "Video": "video", "youtube": "youtube", "article": "article",
-                "pdf": "pdf", "image": "image", "video": "video"
+                "Link YouTube": "youtube", "Gambar": "image",
+                "youtube": "youtube", "image": "image"
             }
             education_type = type_mapping.get(type_input, item.education_type)
 
@@ -427,14 +406,11 @@ def edit_education_material(request, material_id):
             status = status_mapping.get(status_input, "published")
 
             youtube_url = request.POST.get("youtube_url", "").strip()
-            article_url = request.POST.get("article_url", "").strip()
             file_upload = request.FILES.get("file_upload")
             content = request.POST.get("content", "").strip()
 
             if youtube_url and not youtube_url.startswith(("http://", "https://")):
                 youtube_url = "https://" + youtube_url
-            if article_url and not article_url.startswith(("http://", "https://")):
-                article_url = "https://" + article_url
 
             if title:
                 item.title = title
@@ -442,7 +418,7 @@ def edit_education_material(request, material_id):
                 item.summary = summary
                 item.education_type = education_type
                 item.status = status
-                item.content = content or (article_url if education_type == 'article' else item.content)
+                item.content = content
                 item.updated_at = timezone.now()
 
                 if status == 'published' and not item.published_at:
@@ -450,18 +426,13 @@ def edit_education_material(request, material_id):
 
                 if education_type == 'youtube':
                     item.youtube_url = youtube_url
-
-                if file_upload:
-                    fs = FileSystemStorage(location='media/education_materials/', base_url='/media/education_materials/')
-                    filename = fs.save(f"{uuid.uuid4().hex[:8]}_{file_upload.name}", file_upload)
-                    relative_path = f"education_materials/{filename}"
-
-                    if education_type == 'image':
-                        item.image_path = relative_path
-                    elif education_type == 'video':
-                        item.video_url = relative_path
-                    else:
-                        item.audio_url = relative_path
+                    item.image_path = None
+                elif education_type == 'image':
+                    item.youtube_url = None
+                    if file_upload:
+                        fs = FileSystemStorage(location='media/education_materials/', base_url='/media/education_materials/')
+                        filename = fs.save(f"{uuid.uuid4().hex[:8]}_{file_upload.name}", file_upload)
+                        item.image_path = f"education_materials/{filename}"
 
                 item.save()
                 messages.success(request, f"Materi edukasi '{item.title}' berhasil diperbarui (Status: {item.display_status})!")

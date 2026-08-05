@@ -248,11 +248,7 @@ class EducationMaterials(models.Model):
     def display_type(self):
         mapping = {
             'youtube': 'Link YouTube',
-            'article': 'Artikel',
-            'pdf': 'PDF / Dokumen',
-            'image': 'Gambar',
-            'video': 'Video',
-            'audio': 'Audio'
+            'image': 'Gambar'
         }
         return mapping.get(self.education_type, self.education_type)
 
@@ -260,11 +256,8 @@ class EducationMaterials(models.Model):
     def file_url(self):
         if self.image_path:
             return self.image_path if self.image_path.startswith(('http://', 'https://', '/')) else f"/media/{self.image_path}"
-        if self.video_url and not self.video_url.startswith(('http://', 'https://')):
-            return f"/media/{self.video_url}"
-        if self.audio_url and not self.audio_url.startswith(('http://', 'https://')):
-            return f"/media/{self.audio_url}"
         return None
+
 
 
 
