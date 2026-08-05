@@ -12,3 +12,6 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static('/sikasep/media/', document_root=settings.MEDIA_ROOT)
+    upload_root = getattr(settings, 'SIKASEP_UPLOAD_ROOT', settings.MEDIA_ROOT)
+    urlpatterns += static('/uploads/', document_root=upload_root)
+    urlpatterns += static('/sikasep/uploads/', document_root=upload_root)
